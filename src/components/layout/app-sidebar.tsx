@@ -13,6 +13,8 @@ import {
   Library,
   Layers,
   Settings,
+  History,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -23,12 +25,25 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 
-const navItems = [
+type SubItem = { href: string; label: string };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  badge?: string;
+  subItems?: SubItem[];
+};
+type NavGroup = { group: string; items: NavItem[] };
+
+const navItems: NavGroup[] = [
   {
     group: "Riset & Analisis",
     items: [
@@ -48,6 +63,15 @@ const navItems = [
     items: [
       { href: "/prompt", label: "Generator Prompt", icon: Wand2 },
       { href: "/seo", label: "Generator SEO", icon: Tags },
+      {
+        href: "/history",
+        label: "Riwayat",
+        icon: History,
+        subItems: [
+          { href: "/history/prompt", label: "Riwayat Generator Prompt" },
+          { href: "/history/seo", label: "Riwayat Generator SEO" },
+        ],
+      },
     ],
   },
   {
@@ -60,6 +84,13 @@ const navItems = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(
+    () => ({ "/history": pathname.startsWith("/history") })
+  );
+
+  function toggleGroup(href: string) {
+    setOpenGroups((prev) => ({ ...prev, [href]: !prev[href] }));
+  }
 
   return (
     <Sidebar {...props}>
@@ -84,6 +115,40 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+
+                  if (item.subItems) {
+                    const isOpen = openGroups[item.href] ?? false;
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          onClick={() => toggleGroup(item.href)}
+                          isActive={isActive}
+                          tooltip={item.label}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                          <ChevronRight
+                            className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+                          />
+                        </SidebarMenuButton>
+                        {isOpen && (
+                          <SidebarMenuSub>
+                            {item.subItems.map((sub) => (
+                              <SidebarMenuSubItem key={sub.href}>
+                                <SidebarMenuSubButton
+                                  render={<Link href={sub.href} />}
+                                  isActive={pathname === sub.href}
+                                >
+                                  <span>{sub.label}</span>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  }
+
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton

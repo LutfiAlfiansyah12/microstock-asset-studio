@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { loadSettings } from "@/lib/settings";
+import { savePromptSession } from "@/lib/history";
 
 type PromptItem = { id: string; text: string; negative: string; aspectRatio: string };
 
@@ -116,6 +117,7 @@ function PromptGeneratorContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generate gagal");
       setPrompts(data);
+      savePromptSession({ keyword, assetType, targetModel, themes, style, prompts: data.map((p: PromptItem) => ({ text: p.text, negative: p.negative, aspectRatio: p.aspectRatio })) });
       toast.success(`${data.length} prompt berhasil di-generate!`);
     } catch (err) {
       toast.error((err as Error).message);

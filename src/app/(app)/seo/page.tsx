@@ -29,6 +29,8 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { saveSeoSession, type SeoEntry } from "@/lib/history";
+import { loadSettings } from "@/lib/settings";
 
 const platformRules = {
   adobe: { maxKeywords: 49, maxTitle: 200, maxDesc: 200, platform: "Adobe Stock" },
@@ -208,14 +210,36 @@ function SEOGeneratorContent() {
     reader.readAsDataURL(file);
   }
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!singleFile) return;
+    const { geminiKeys, geminiModel } = loadSettings();
+    if (!geminiKeys.length) {
+      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
+      return;
+    }
     setIsGenerating(true);
-    setTimeout(() => {
-      setResult(mockSeoResult);
-      setIsGenerating(false);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(singleFile!);
+      });
+      const res = await fetch("/api/seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mimeType: singleFile!.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Generate gagal");
+      setResult(data);
+      saveSeoSession({ platform, assetType, keyword, items: [{ fileName: singleFile!.name, result: data }] });
       toast.success("SEO metadata berhasil di-generate!");
-    }, 1800);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   function handleExportSingle(format: "csv" | "json") {
@@ -258,18 +282,36 @@ function SEOGeneratorContent() {
   async function handleBulkGenerate() {
     const pending = bulkItems.filter((i) => i.status !== "done");
     if (!pending.length) return;
-    setIsBulkGenerating(true);
-    for (const item of pending) {
-      setBulkItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, status: "generating" } : i))
-      );
-      await new Promise((r) => setTimeout(r, 1500));
-      setBulkItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id ? { ...i, status: "done", result: mockSeoResult } : i
-        )
-      );
+    const { geminiKeys, geminiModel } = loadSettings();
+    if (!geminiKeys.length) {
+      toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
+      return;
     }
+    setIsBulkGenerating(true);
+    const completed: SeoEntry[] = [];
+    for (const item of pending) {
+      setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(item.file);
+        });
+        const res = await fetch("/api/seo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Generate gagal");
+        setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "done", result: data } : i));
+        completed.push({ fileName: item.file.name, result: data });
+      } catch {
+        setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "error" } : i));
+      }
+    }
+    if (completed.length) saveSeoSession({ platform, assetType, keyword, items: completed });
     setIsBulkGenerating(false);
     toast.success(`${pending.length} aset berhasil di-generate SEO-nya!`);
   }
