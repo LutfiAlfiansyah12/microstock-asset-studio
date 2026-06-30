@@ -110,6 +110,13 @@ export default function CopyStyleVideoPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analisis gagal");
       setResult(data);
+      localStorage.setItem("lastAnalysisContext", JSON.stringify({
+        style: data.stylePrompt,
+        themes: data.tags.join(", "),
+        assetType: "video",
+        previewSrc: urlInput || null,
+        source: "Video",
+      }));
       toast.success("Analisis video selesai!");
     } catch (err) {
       toast.error((err as Error).message);

@@ -81,6 +81,7 @@ function PromptGeneratorContent() {
   const [seamless, setSeamless] = useState(false);
   const [abstrak, setAbstrak] = useState(false);
   const [iconSet, setIconSet] = useState(false);
+  const [lastContext, setLastContext] = useState<{ style: string; themes: string; assetType: string; previewSrc: string | null; source: string } | null>(null);
   const videoModeOn = assetType === "video" && (seamless || abstrak);
   const [isGenerating, setIsGenerating] = useState(false);
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
@@ -98,8 +99,23 @@ function PromptGeneratorContent() {
         if (ctx.previewSrc) setContextPreview(ctx.previewSrc);
       } catch {}
       sessionStorage.removeItem("promptContext");
+    } else {
+      const last = localStorage.getItem("lastAnalysisContext");
+      if (last) {
+        try { setLastContext(JSON.parse(last)); } catch {}
+      }
     }
   }, []);
+
+  function handleUseLastContext() {
+    if (!lastContext) return;
+    if (lastContext.style) setStyle(lastContext.style);
+    if (lastContext.themes) setThemes(lastContext.themes);
+    if (lastContext.assetType) setAssetType(lastContext.assetType);
+    if (lastContext.previewSrc) setContextPreview(lastContext.previewSrc);
+    setLastContext(null);
+    toast.success("Hasil analisis diterapkan!");
+  }
 
   async function handleGenerate() {
     const { geminiKeys, geminiModel } = loadSettings();
@@ -195,6 +211,20 @@ function PromptGeneratorContent() {
                     </Button>
                   </div>
                   <Separator className="mt-4" />
+                </div>
+              )}
+
+              {lastContext && (
+                <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
+                  <span className="text-blue-700">Hasil analisis <span className="font-medium">{lastContext.source}</span> tersedia</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-700 hover:text-blue-800 px-2" onClick={handleUseLastContext}>
+                      Gunakan
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400 hover:text-blue-600" onClick={() => setLastContext(null)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               )}
 

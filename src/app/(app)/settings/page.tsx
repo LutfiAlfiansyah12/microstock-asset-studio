@@ -32,7 +32,7 @@ function maskKey(key: string): string {
   return `${key.slice(0, 8)}••••••••${key.slice(-4)}`;
 }
 
-type KeyStatus = "idle" | "testing" | "ok" | "error";
+type KeyStatus = "idle" | "testing" | "ok" | "limit" | "error";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({ geminiKeys: [], geminiModel: "gemini-2.5-flash" });
@@ -99,6 +99,9 @@ export default function SettingsPage() {
       if (res.ok && data.ok) {
         setKeyStatuses((prev) => ({ ...prev, [index]: "ok" }));
         toast.success("Key valid dan berfungsi!");
+      } else if (data.limit) {
+        setKeyStatuses((prev) => ({ ...prev, [index]: "limit" }));
+        toast.warning("Quota habis / rate limit.");
       } else {
         setKeyStatuses((prev) => ({ ...prev, [index]: "error" }));
         toast.error(data.error || "Key tidak valid.");
@@ -122,6 +125,7 @@ export default function SettingsPage() {
   const statusBadge = (status: KeyStatus) => {
     if (status === "testing") return <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Cek...</span>;
     if (status === "ok") return <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle2 className="h-3 w-3" />Aktif</span>;
+    if (status === "limit") return <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500"><AlertTriangle className="h-3 w-3" />Limit</span>;
     if (status === "error") return <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500"><XCircle className="h-3 w-3" />Error</span>;
     return <span className="text-xs text-muted-foreground">—</span>;
   };

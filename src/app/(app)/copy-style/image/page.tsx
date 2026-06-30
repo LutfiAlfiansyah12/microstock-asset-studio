@@ -81,6 +81,13 @@ export default function CopyStyleImagePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analisis gagal");
       setResult(data);
+      localStorage.setItem("lastAnalysisContext", JSON.stringify({
+        style: data.stylePrompt,
+        themes: data.tags.join(", "),
+        assetType: "image",
+        previewSrc: urlInput || null,
+        source: "Foto / Gambar",
+      }));
       toast.success("Analisis selesai!");
     } catch (err) {
       toast.error((err as Error).message);
