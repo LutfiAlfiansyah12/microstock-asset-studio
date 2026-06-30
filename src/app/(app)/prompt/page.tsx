@@ -78,11 +78,13 @@ function PromptGeneratorContent() {
   const [style, setStyle] = useState(initialStyle);
   const [brief, setBrief] = useState("");
   const [batchCount, setBatchCount] = useState("3");
+  const [temaUtama, setTemaUtama] = useState("");
   const [seamless, setSeamless] = useState(false);
   const [abstrak, setAbstrak] = useState(false);
   const [iconSet, setIconSet] = useState(false);
   const [lastContext, setLastContext] = useState<{ style: string; themes: string; assetType: string; previewSrc: string | null; source: string } | null>(null);
   const videoModeOn = assetType === "video" && (seamless || abstrak);
+  const temaUtamaOn = !!temaUtama.trim();
   const [isGenerating, setIsGenerating] = useState(false);
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
   const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
@@ -129,12 +131,13 @@ function PromptGeneratorContent() {
       const res = await fetch("/api/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys, seamless, abstrak, iconSet }),
+        body: JSON.stringify({ keyword: temaUtama.trim() || keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys, seamless, abstrak, iconSet }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generate gagal");
       setPrompts(data);
-      savePromptSession({ keyword, assetType, targetModel, themes, style, prompts: data.map((p: PromptItem) => ({ text: p.text, negative: p.negative, aspectRatio: p.aspectRatio })) });
+      const historyKeyword = temaUtama.trim() || (videoModeOn ? [seamless && "Seamless", abstrak && "Abstrak"].filter(Boolean).join(" + ") : keyword);
+      savePromptSession({ keyword: historyKeyword, assetType, targetModel, themes, style, prompts: data.map((p: PromptItem) => ({ text: p.text, negative: p.negative, aspectRatio: p.aspectRatio })) });
       toast.success(`${data.length} prompt berhasil di-generate!`);
     } catch (err) {
       toast.error((err as Error).message);
@@ -246,7 +249,7 @@ function PromptGeneratorContent() {
 
                 <div className="space-y-1">
                   <Label className="text-xs">Kategori Aset</Label>
-                  {videoModeOn ? (
+                  {videoModeOn || temaUtamaOn ? (
                     <div className="flex h-8 w-full items-center rounded-md border border-input bg-muted px-3 text-xs text-muted-foreground">—</div>
                   ) : (
                     <Select value={keyword} onValueChange={(v) => v && setKeyword(v)}>
@@ -306,6 +309,18 @@ function PromptGeneratorContent() {
                   </div>
                 </div>
               )}
+
+              <div className="space-y-1.5">
+                <Label>Tema Utama</Label>
+                <Input
+                  placeholder="mis: Coffee Shop, Space Exploration, Cherry Blossom..."
+                  value={temaUtama}
+                  onChange={(e) => setTemaUtama(e.target.value)}
+                />
+                {temaUtamaOn && (
+                  <p className="text-xs text-muted-foreground">Kategori Aset dinonaktifkan — tema utama dipakai sebagai kategori.</p>
+                )}
+              </div>
 
               <div className="space-y-1.5">
                 <Label>Tema Tambahan</Label>

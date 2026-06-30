@@ -238,7 +238,7 @@ export default function SettingsPage() {
                       {filled ? (visibleKeys.has(i) ? key : maskKey(key)) : ""}
                     </code>
 
-                    <div className="w-16 shrink-0 text-right">
+                    <div className="w-20 shrink-0 text-right">
                       {filled ? statusBadge(keyStatuses[i] || "idle") : null}
                     </div>
 
