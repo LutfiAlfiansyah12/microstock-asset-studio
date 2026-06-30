@@ -238,11 +238,11 @@ export default function SettingsPage() {
                       {filled ? (visibleKeys.has(i) ? key : maskKey(key)) : ""}
                     </code>
 
-                    <div className="w-20 shrink-0 text-right">
+                    <div className="shrink-0 text-right min-w-[72px]">
                       {filled ? statusBadge(keyStatuses[i] || "idle") : null}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0 w-[88px] justify-end">
+                    <div className="flex items-center gap-1 shrink-0">
                       {filled && (
                         <>
                           <Button
@@ -252,15 +252,6 @@ export default function SettingsPage() {
                             onClick={() => toggleVisible(i)}
                           >
                             {visibleKeys.has(i) ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs px-2"
-                            onClick={() => handleTestKey(i)}
-                            disabled={keyStatuses[i] === "testing"}
-                          >
-                            Test
                           </Button>
                           <Button
                             variant="ghost"
