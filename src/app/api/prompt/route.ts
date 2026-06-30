@@ -53,6 +53,7 @@ ICON SET COMPOSITION — NON-NEGOTIABLE RULES:
 - Icons must be clearly separated with generous padding — no overlapping, no clipping at edges
 - Clean, commercially viable flat design — no heavy drop shadows, no 3D extrusion, no photorealistic rendering
 - The overall image must look like a professional icon set collection sheet sold on microstock platforms
+- ABSOLUTELY NO TEXT, letters, numbers, labels, captions, watermarks, or any typography anywhere in the image — pure graphic icons only, zero text elements
 - Icon theme/category: ${keyword}
 ${themes ? `- Additional style/theme: ${themes}` : ""}
 ${style ? `- Style preset: ${style}` : ""}
@@ -65,12 +66,12 @@ DIVERSIFICATION ACROSS PROMPTS:
 - Vary icon style across prompts: flat color, outline/line art, filled monochrome, duotone, minimal, etc.
 - Never repeat the same icon collection across prompts
 
-NEGATIVE PROMPT (mandatory for all): photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality
+NEGATIVE PROMPT (mandatory for all): photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality, text, letters, numbers, labels, captions, watermarks, typography, words, characters, alphabet
 
 Aspect ratio for all icon sets: 1:1 (square canvas)
 
 Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
-[{ "text": "<complete ready-to-use prompt specifying exactly 12 icons on white background in 4x3 grid>", "negative": "photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality", "aspectRatio": "1:1" }]`;
+[{ "text": "<complete ready-to-use prompt specifying exactly 12 icons on white background in 4x3 grid>", "negative": "photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality, text, letters, numbers, labels, captions, watermarks, typography, words, characters, alphabet", "aspectRatio": "1:1" }]`;
 
       const rawText = await withGemini(keys, async (client, activeModel) => {
         const response = await client.models.generateContent({
