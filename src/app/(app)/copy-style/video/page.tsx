@@ -50,47 +50,18 @@ export default function CopyStyleVideoPage() {
   const [analyzeStatus, setAnalyzeStatus] = useState<string | null>(null);
 
   async function uploadVideoToGemini(file: File, apiKey: string): Promise<string> {
-    const initRes = await fetch(
-      `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=resumable&key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "X-Goog-Upload-Protocol": "resumable",
-          "X-Goog-Upload-Command": "start",
-          "X-Goog-Upload-Header-Content-Length": String(file.size),
-          "X-Goog-Upload-Header-Content-Type": file.type || "video/mp4",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ file: { displayName: file.name } }),
-      }
-    );
-    if (!initRes.ok) throw new Error("Gagal memulai upload ke Gemini");
-    const uploadUrl = initRes.headers.get("x-goog-upload-url");
-    if (!uploadUrl) throw new Error("Upload URL tidak ditemukan");
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
 
     setAnalyzeStatus("Mengupload video ke Gemini...");
-    const uploadRes = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        "Content-Length": String(file.size),
-        "X-Goog-Upload-Offset": "0",
-        "X-Goog-Upload-Command": "upload, finalize",
-      },
-      body: file,
-    });
-    if (!uploadRes.ok) throw new Error("Gagal mengupload video ke Gemini");
-    const uploadData = await uploadRes.json();
-    const name: string = uploadData.file?.name;
-    if (!name) throw new Error("File name tidak ditemukan setelah upload");
+    const uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "video/mp4" } });
+    const name = uploaded.name!;
 
     setAnalyzeStatus("Menunggu Gemini memproses video...");
     for (let i = 0; i < 30; i++) {
-      const statusRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${name}?key=${apiKey}`
-      );
-      const status = await statusRes.json();
-      if (status.state === "ACTIVE") return status.uri as string;
-      if (status.state === "FAILED") throw new Error("Gemini gagal memproses video");
+      const info = await ai.files.get({ name });
+      if (info.state === "ACTIVE") return info.uri!;
+      if (info.state === "FAILED") throw new Error("Gemini gagal memproses video");
       await new Promise((r) => setTimeout(r, 3000));
     }
     throw new Error("Timeout menunggu video diproses Gemini (90s)");
