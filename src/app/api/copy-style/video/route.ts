@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { withGemini, buildModelChain } from "@/lib/gemini";
-import { GoogleGenAI } from "@google/genai";
 
-const PROMPT = `Kamu adalah analis visual microstock profesional. Analisis video/konten ini secara detail dan kembalikan HANYA objek JSON valid tanpa teks lain di luar JSON:
+const PROMPT =`Kamu adalah analis visual microstock profesional. Analisis video/konten ini secara detail dan kembalikan HANYA objek JSON valid tanpa teks lain di luar JSON:
 
 {
   "pacing": "<kecepatan edit: slow & cinematic / medium paced / fast cut, estimasi fps>",
@@ -27,43 +26,14 @@ function isYouTubeUrl(url: string): boolean {
   return /youtube\.com|youtu\.be/.test(url);
 }
 
-async function uploadAndWait(client: GoogleGenAI, file: Blob, mimeType: string): Promise<string> {
-  const uploaded = await client.files.upload({ file, config: { mimeType } });
-  const name = uploaded.name!;
-
-  // Poll until ACTIVE (usually 5-30s for typical microstock clips)
-  for (let i = 0; i < 30; i++) {
-    const info = await client.files.get({ name });
-    if (info.state === "ACTIVE") return info.uri!;
-    if (info.state === "FAILED") throw new Error("Gemini gagal memproses video");
-    await new Promise((r) => setTimeout(r, 3000));
-  }
-  throw new Error("Timeout menunggu video diproses Gemini (90s)");
-}
-
 export async function POST(req: Request) {
   try {
-    const ct = req.headers.get("content-type") || "";
-    let videoBlob: Blob | null = null;
-    let mimeType = "video/mp4";
-    let videoUrl = "";
-    let model = "";
-    let keys: string[] = [];
-
-    if (ct.includes("multipart/form-data")) {
-      const fd = await req.formData();
-      const f = fd.get("file") as File | null;
-      if (!f) throw new Error("File tidak ditemukan");
-      videoBlob = f;
-      mimeType = f.type || "video/mp4";
-      model = fd.get("model") as string || "";
-      keys = JSON.parse(fd.get("keys") as string || "[]");
-    } else {
-      const body = await req.json();
-      videoUrl = body.videoUrl || "";
-      model = body.model || "";
-      keys = body.keys || [];
-    }
+    const body = await req.json();
+    const fileUri: string = body.fileUri || "";
+    const videoUrl: string = body.videoUrl || "";
+    const mimeType: string = body.mimeType || "video/mp4";
+    const model: string = body.model || "";
+    const keys: string[] = body.keys || [];
 
     if (!keys.length) {
       return NextResponse.json({ error: "Belum ada API key. Tambahkan di halaman Settings." }, { status: 400 });
@@ -72,8 +42,7 @@ export async function POST(req: Request) {
     const rawText = await withGemini(keys, async (client, activeModel) => {
       let videoPart: { inlineData?: { mimeType: string; data: string }; fileData?: { fileUri: string; mimeType?: string } };
 
-      if (videoBlob) {
-        const fileUri = await uploadAndWait(client, videoBlob, mimeType);
+      if (fileUri) {
         videoPart = { fileData: { fileUri, mimeType } };
       } else if (isYouTubeUrl(videoUrl)) {
         videoPart = { fileData: { fileUri: videoUrl } };

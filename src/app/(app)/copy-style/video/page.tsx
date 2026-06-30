@@ -47,6 +47,54 @@ export default function CopyStyleVideoPage() {
   const [result, setResult] = useState<VideoAnalysisResult | null>(null);
   const [videoName, setVideoName] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [analyzeStatus, setAnalyzeStatus] = useState<string | null>(null);
+
+  async function uploadVideoToGemini(file: File, apiKey: string): Promise<string> {
+    const initRes = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=resumable&key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "X-Goog-Upload-Protocol": "resumable",
+          "X-Goog-Upload-Command": "start",
+          "X-Goog-Upload-Header-Content-Length": String(file.size),
+          "X-Goog-Upload-Header-Content-Type": file.type || "video/mp4",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ file: { displayName: file.name } }),
+      }
+    );
+    if (!initRes.ok) throw new Error("Gagal memulai upload ke Gemini");
+    const uploadUrl = initRes.headers.get("x-goog-upload-url");
+    if (!uploadUrl) throw new Error("Upload URL tidak ditemukan");
+
+    setAnalyzeStatus("Mengupload video ke Gemini...");
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        "Content-Length": String(file.size),
+        "X-Goog-Upload-Offset": "0",
+        "X-Goog-Upload-Command": "upload, finalize",
+      },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error("Gagal mengupload video ke Gemini");
+    const uploadData = await uploadRes.json();
+    const name: string = uploadData.file?.name;
+    if (!name) throw new Error("File name tidak ditemukan setelah upload");
+
+    setAnalyzeStatus("Menunggu Gemini memproses video...");
+    for (let i = 0; i < 30; i++) {
+      const statusRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${name}?key=${apiKey}`
+      );
+      const status = await statusRes.json();
+      if (status.state === "ACTIVE") return status.uri as string;
+      if (status.state === "FAILED") throw new Error("Gemini gagal memproses video");
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    throw new Error("Timeout menunggu video diproses Gemini (90s)");
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -72,17 +120,22 @@ export default function CopyStyleVideoPage() {
     }
 
     setIsAnalyzing(true);
+    setAnalyzeStatus("Mempersiapkan...");
     try {
-      let res: Response;
+      let body: object;
       if (videoFile) {
-        const fd = new FormData();
-        fd.append("file", videoFile);
-        fd.append("model", geminiModel);
-        fd.append("keys", JSON.stringify(geminiKeys));
-        res = await fetch("/api/copy-style/video", { method: "POST", body: fd });
+        const fileUri = await uploadVideoToGemini(videoFile, geminiKeys[0]);
+        setAnalyzeStatus("Menganalisis gaya video...");
+        body = { fileUri, mimeType: videoFile.type || "video/mp4", model: geminiModel, keys: geminiKeys };
       } else {
-        res = await fetch("/api/copy-style/video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videoUrl: urlInput, model: geminiModel, keys: geminiKeys }) });
+        setAnalyzeStatus("Menganalisis gaya video...");
+        body = { videoUrl: urlInput, model: geminiModel, keys: geminiKeys };
       }
+      const res = await fetch("/api/copy-style/video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analisis gagal");
       setResult(data);
@@ -91,6 +144,7 @@ export default function CopyStyleVideoPage() {
       toast.error((err as Error).message);
     } finally {
       setIsAnalyzing(false);
+      setAnalyzeStatus(null);
     }
   }
 
@@ -190,7 +244,7 @@ export default function CopyStyleVideoPage() {
                   {isAnalyzing ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Menganalisis...
+                      {analyzeStatus ?? "Memproses..."}
                     </>
                   ) : (
                     <>
