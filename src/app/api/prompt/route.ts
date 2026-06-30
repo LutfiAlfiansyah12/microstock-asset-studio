@@ -30,7 +30,7 @@ function extractJson(text: string): string {
 
 export async function POST(req: Request) {
   try {
-    const { keyword, themes, style, brief, assetType, targetModel, count, model, keys, seamless, abstrak } = await req.json();
+    const { keyword, themes, style, brief, assetType, targetModel, count, model, keys, seamless, abstrak, iconSet } = await req.json();
 
     if (!keys?.length) {
       return NextResponse.json({ error: "Belum ada API key. Tambahkan di halaman Settings." }, { status: 400 });
@@ -41,6 +41,57 @@ export async function POST(req: Request) {
     const modelTip = MODEL_TIPS[targetModel] || "Format deskriptif detail.";
 
     const isVideoMode = seamless || abstrak;
+
+    if (iconSet) {
+      const iconSetPrompt = `You are a professional prompt engineer for microstock icon assets. Generate EXACTLY ${n} different icon set prompts for the ${targetModel || "image AI"} AI model.
+
+ICON SET COMPOSITION — NON-NEGOTIABLE RULES:
+- Each prompt MUST produce ONE single image containing EXACTLY 12 icons — no more, no less, never 11 or 13
+- Grid layout: 4 columns × 3 rows, perfectly aligned with equal spacing between every icon
+- Canvas background: pure solid white (#FFFFFF) — absolutely no gradients, textures, patterns, or tinted backgrounds
+- All 12 icons must be uniform in size, visual weight, and consistent in style with each other
+- Icons must be clearly separated with generous padding — no overlapping, no clipping at edges
+- Clean, commercially viable flat design — no heavy drop shadows, no 3D extrusion, no photorealistic rendering
+- The overall image must look like a professional icon set collection sheet sold on microstock platforms
+- Icon theme/category: ${keyword}
+${themes ? `- Additional style/theme: ${themes}` : ""}
+${style ? `- Style preset: ${style}` : ""}
+${brief ? `- Additional brief: ${brief}` : ""}
+
+FORMAT GUIDE: ${modelTip}
+
+DIVERSIFICATION ACROSS PROMPTS:
+- Each of the ${n} prompts must feature a DIFFERENT set of 12 icon subjects within the "${keyword}" category
+- Vary icon style across prompts: flat color, outline/line art, filled monochrome, duotone, minimal, etc.
+- Never repeat the same icon collection across prompts
+
+NEGATIVE PROMPT (mandatory for all): photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality
+
+Aspect ratio for all icon sets: 1:1 (square canvas)
+
+Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
+[{ "text": "<complete ready-to-use prompt specifying exactly 12 icons on white background in 4x3 grid>", "negative": "photorealistic, 3D render, photo, gradient background, colored background, texture background, drop shadow, perspective distortion, cropped icons, overlapping icons, fewer than 12 icons, more than 12 icons, blurry, low quality", "aspectRatio": "1:1" }]`;
+
+      const rawText = await withGemini(keys, async (client, activeModel) => {
+        const response = await client.models.generateContent({
+          model: activeModel,
+          contents: iconSetPrompt,
+        });
+        return response.text;
+      }, buildModelChain(model || "gemini-2.5-flash"));
+
+      const parsed = JSON.parse(extractJson(rawText ?? ""));
+      if (!Array.isArray(parsed)) throw new Error("Format respons tidak valid");
+
+      return NextResponse.json(
+        parsed.slice(0, n).map((p: { text: string; negative: string; aspectRatio: string }, i: number) => ({
+          id: String(i + 1),
+          text: p.text,
+          negative: p.negative,
+          aspectRatio: "1:1",
+        }))
+      );
+    }
 
     const seamlessRules = seamless ? `
 SEAMLESS LOOP — WAJIB:

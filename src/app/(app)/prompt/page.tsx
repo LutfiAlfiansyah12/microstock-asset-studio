@@ -80,6 +80,7 @@ function PromptGeneratorContent() {
   const [batchCount, setBatchCount] = useState("3");
   const [seamless, setSeamless] = useState(false);
   const [abstrak, setAbstrak] = useState(false);
+  const [iconSet, setIconSet] = useState(false);
   const videoModeOn = assetType === "video" && (seamless || abstrak);
   const [isGenerating, setIsGenerating] = useState(false);
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
@@ -112,7 +113,7 @@ function PromptGeneratorContent() {
       const res = await fetch("/api/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys, seamless, abstrak }),
+        body: JSON.stringify({ keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys, seamless, abstrak, iconSet }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generate gagal");
@@ -308,7 +309,18 @@ function PromptGeneratorContent() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Jumlah Variasi (Batch)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Jumlah Variasi (Batch)</Label>
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={iconSet}
+                      onChange={(e) => setIconSet(e.target.checked)}
+                      className="h-3.5 w-3.5 accent-primary cursor-pointer"
+                    />
+                    Icon Set
+                  </label>
+                </div>
                 <Select
                   value={batchCount}
                   onValueChange={(v) => v && setBatchCount(v)}
