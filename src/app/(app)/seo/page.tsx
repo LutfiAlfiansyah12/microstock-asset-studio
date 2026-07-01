@@ -185,6 +185,7 @@ function SEOGeneratorContent() {
   const [singleFile, setSingleFile] = useState<File | null>(null);
   const [singlePreview, setSinglePreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState<string | null>(null);
   const [result, setResult] = useState<SeoResult | null>(null);
   const singleInputRef = useRef<HTMLInputElement>(null);
 
@@ -194,6 +195,22 @@ function SEOGeneratorContent() {
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
   const rules = platformRules[platform as keyof typeof platformRules];
+
+  async function uploadVideoToGemini(file: File, apiKey: string, onStatus?: (s: string) => void): Promise<string> {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
+    onStatus?.("Mengupload video ke Gemini...");
+    const uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "video/mp4" } });
+    const name = uploaded.name!;
+    onStatus?.("Menunggu Gemini memproses video...");
+    for (let i = 0; i < 30; i++) {
+      const info = await ai.files.get({ name });
+      if (info.state === "ACTIVE") return info.uri!;
+      if (info.state === "FAILED") throw new Error("Gemini gagal memproses video");
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    throw new Error("Timeout menunggu video diproses Gemini (90s)");
+  }
 
   function handleCopy(text: string) {
     navigator.clipboard.writeText(text);
@@ -219,16 +236,24 @@ function SEOGeneratorContent() {
     }
     setIsGenerating(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(singleFile!);
-      });
+      let body: Record<string, unknown>;
+      if (singleFile.type.startsWith("video/")) {
+        const fileUri = await uploadVideoToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
+        body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+      } else {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(singleFile!);
+        });
+        body = { imageBase64: base64, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+      }
+      setAnalyzeStatus("Generating SEO...");
       const res = await fetch("/api/seo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: singleFile!.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generate gagal");
@@ -239,6 +264,7 @@ function SEOGeneratorContent() {
       toast.error((err as Error).message);
     } finally {
       setIsGenerating(false);
+      setAnalyzeStatus(null);
     }
   }
 
@@ -292,16 +318,23 @@ function SEOGeneratorContent() {
     for (const item of pending) {
       setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
       try {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(item.file);
-        });
+        let body: Record<string, unknown>;
+        if (item.file.type.startsWith("video/")) {
+          const fileUri = await uploadVideoToGemini(item.file, geminiKeys[0]);
+          body = { fileUri, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+        } else {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(item.file);
+          });
+          body = { imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+        }
         const res = await fetch("/api/seo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generate gagal");
@@ -468,7 +501,7 @@ function SEOGeneratorContent() {
                       {isGenerating ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Menganalisis & Generate...
+                          {analyzeStatus ?? "Menganalisis & Generate..."}
                         </>
                       ) : (
                         <>

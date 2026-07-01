@@ -33,20 +33,23 @@ function extractJson(text: string): string {
 
 export async function POST(req: Request) {
   try {
-    const { imageBase64, mimeType, platform, assetType, keyword, model, keys } = await req.json();
+    const { imageBase64, fileUri, mimeType, platform, assetType, keyword, model, keys } = await req.json();
 
     if (!keys?.length) {
       return NextResponse.json({ error: "Belum ada API key. Tambahkan di halaman Settings." }, { status: 400 });
     }
-    if (!imageBase64) {
-      return NextResponse.json({ error: "Tidak ada gambar yang diberikan." }, { status: 400 });
+    if (!imageBase64 && !fileUri) {
+      return NextResponse.json({ error: "Tidak ada aset yang diberikan." }, { status: 400 });
     }
 
     const rawText = await withGemini(keys, async (client, activeModel) => {
+      const mediaPart = fileUri
+        ? { fileData: { fileUri, mimeType: mimeType || "video/mp4" } }
+        : { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64 } };
       const response = await client.models.generateContent({
         model: activeModel,
         contents: [
-          { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64 } },
+          mediaPart,
           { text: buildPrompt(platform || "adobe", assetType || "photo", keyword || "") },
         ],
       });
