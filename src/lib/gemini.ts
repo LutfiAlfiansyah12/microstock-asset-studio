@@ -24,6 +24,27 @@ function isUnavailableError(err: unknown): boolean {
   return false;
 }
 
+// Uploaded file reports ACTIVE but Gemini's backend hasn't replicated it yet.
+// ponytail: fixed retry count/delay, tune if propagation lag proves longer in practice.
+function isFileNotReadyError(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return msg.includes("permission_denied") && msg.includes("may not exist");
+  }
+  return false;
+}
+
+async function callWithFileRetry<T>(client: GoogleGenAI, model: string, fn: (client: GoogleGenAI, model: string) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn(client, model);
+    } catch (err) {
+      if (!isFileNotReadyError(err) || attempt >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+}
+
 // fn receives (client, model) so model rotation is transparent to callers
 export async function withGemini<T>(
   keys: string[],
@@ -42,7 +63,7 @@ export async function withGemini<T>(
     for (const key of keys) {
       try {
         const client = new GoogleGenAI({ apiKey: key });
-        return await fn(client, model);
+        return await callWithFileRetry(client, model, fn);
       } catch (err) {
         if (isRateLimitError(err)) {
           lastError = err;
