@@ -21,7 +21,7 @@ Buat metadata dalam bahasa Inggris. Return HANYA objek JSON valid tanpa teks lai
 
 Tipe aset: ${assetType}
 ${keyword ? `Keyword tambahan: ${keyword}` : ""}
-Maksimum ${p.maxKeywords} keyword, urutkan dari paling relevan ke paling umum.
+Maksimum ${p.maxKeywords} keyword, urutkan dari paling relevan ke paling umum, semua huruf kecil, tanpa duplikat.
 Jangan melebihi batas karakter dan jumlah keyword.`;
 }
 
@@ -29,6 +29,15 @@ function extractJson(text: string): string {
   const fence = text.match(/```json\s*([\s\S]*?)```/);
   if (fence) return fence[1].trim();
   return text.match(/\{[\s\S]*\}/)?.[0] ?? text.trim();
+}
+
+// ponytail: model doesn't reliably obey the prompt's limits/casing/punctuation rules, so enforce them here as the single source of truth.
+function sanitizeSeo(raw: { title?: string; description?: string; keywords?: string[] }, limits: { maxTitle: number; maxDesc: number; maxKeywords: number }) {
+  const title = (raw.title ?? "").trim().replace(/\.+$/, "").slice(0, limits.maxTitle).trim();
+  const description = (raw.description ?? "").trim().slice(0, limits.maxDesc).trim();
+  const keywords = [...new Set((raw.keywords ?? []).map((k) => String(k).trim().toLowerCase()).filter(Boolean))]
+    .slice(0, limits.maxKeywords);
+  return { ...raw, title, description, keywords };
 }
 
 export async function POST(req: Request) {
@@ -56,7 +65,8 @@ export async function POST(req: Request) {
       return response.text;
     }, buildModelChain(model || "gemini-2.5-flash"));
 
-    return NextResponse.json(JSON.parse(extractJson(rawText ?? "")));
+    const parsed = JSON.parse(extractJson(rawText ?? ""));
+    return NextResponse.json(sanitizeSeo(parsed, platformLimits[platform] ?? platformLimits.adobe));
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
