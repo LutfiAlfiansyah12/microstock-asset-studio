@@ -61,6 +61,7 @@ type BulkItem = {
   preview: string;
   status: "idle" | "generating" | "done" | "error";
   result?: SeoResult;
+  error?: string;
 };
 
 function ValidationIcon({ ok }: { ok: boolean }) {
@@ -196,20 +197,23 @@ function SEOGeneratorContent() {
 
   const rules = platformRules[platform as keyof typeof platformRules];
 
-  async function uploadVideoToGemini(file: File, apiKey: string, onStatus?: (s: string) => void): Promise<string> {
+  // ponytail: Vercel serverless functions cap request bodies around 4.5MB, so
+  // large images can't go through /api/seo as base64 — upload straight to
+  // Gemini's Files API from the browser instead, same as videos already did.
+  async function uploadFileToGemini(file: File, apiKey: string, onStatus?: (s: string) => void): Promise<string> {
     const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });
-    onStatus?.("Mengupload video ke Gemini...");
-    const uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "video/mp4" } });
+    onStatus?.("Mengupload aset ke Gemini...");
+    const uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "application/octet-stream" } });
     const name = uploaded.name!;
-    onStatus?.("Menunggu Gemini memproses video...");
+    onStatus?.("Menunggu Gemini memproses aset...");
     for (let i = 0; i < 30; i++) {
       const info = await ai.files.get({ name });
       if (info.state === "ACTIVE") return info.uri!;
-      if (info.state === "FAILED") throw new Error("Gemini gagal memproses video");
+      if (info.state === "FAILED") throw new Error("Gemini gagal memproses aset");
       await new Promise((r) => setTimeout(r, 3000));
     }
-    throw new Error("Timeout menunggu video diproses Gemini (90s)");
+    throw new Error("Timeout menunggu Gemini memproses aset (90s)");
   }
 
   function handleCopy(text: string) {
@@ -237,8 +241,8 @@ function SEOGeneratorContent() {
     setIsGenerating(true);
     try {
       let body: Record<string, unknown>;
-      if (singleFile.type.startsWith("video/")) {
-        const fileUri = await uploadVideoToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
+      if (singleFile.size > 3 * 1024 * 1024) {
+        const fileUri = await uploadFileToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
         body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
       } else {
         const base64 = await new Promise<string>((resolve, reject) => {
@@ -319,8 +323,8 @@ function SEOGeneratorContent() {
       setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
       try {
         let body: Record<string, unknown>;
-        if (item.file.type.startsWith("video/")) {
-          const fileUri = await uploadVideoToGemini(item.file, geminiKeys[0]);
+        if (item.file.size > 3 * 1024 * 1024) {
+          const fileUri = await uploadFileToGemini(item.file, geminiKeys[0]);
           body = { fileUri, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
         } else {
           const base64 = await new Promise<string>((resolve, reject) => {
@@ -340,8 +344,8 @@ function SEOGeneratorContent() {
         if (!res.ok) throw new Error(data.error || "Generate gagal");
         setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "done", result: data } : i));
         completed.push({ fileName: item.file.name, result: data });
-      } catch {
-        setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "error" } : i));
+      } catch (err) {
+        setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "error", error: (err as Error).message } : i));
       }
     }
     if (completed.length) saveSeoSession({ platform, assetType, keyword, items: completed });
@@ -656,6 +660,12 @@ function SEOGeneratorContent() {
                                     Selesai
                                   </Badge>
                                 )}
+                                {item.status === "error" && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    Gagal
+                                  </Badge>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -666,6 +676,10 @@ function SEOGeneratorContent() {
                                 </Button>
                               </div>
                             </div>
+
+                            {item.status === "error" && (
+                              <p className="mt-2 text-xs text-destructive">{item.error}</p>
+                            )}
 
                             {item.status === "done" && item.result && (
                               <div className="mt-2 space-y-1">

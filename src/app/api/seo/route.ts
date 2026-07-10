@@ -14,7 +14,7 @@ function buildPrompt(platformKey: string, assetType: string, keyword: string) {
 Buat metadata dalam bahasa Inggris. Return HANYA objek JSON valid tanpa teks lain:
 
 {
-  "title": "<judul SEO maks ${p.maxTitle} karakter, deskriptif dan keyword-rich>",
+  "title": "<judul SEO maks ${p.maxTitle} karakter, deskriptif dan keyword-rich, sentence case (huruf kapital hanya di awal kalimat)>",
   "description": "<deskripsi maks ${p.maxDesc} karakter, jelas dan informatif>",
   "keywords": ["<keyword1>", "<keyword2>", ...]
 }
@@ -31,9 +31,14 @@ function extractJson(text: string): string {
   return text.match(/\{[\s\S]*\}/)?.[0] ?? text.trim();
 }
 
+// Sentence case: capital only at the start and after ". ", everything else lowercase.
+function toSentenceCase(text: string): string {
+  return text.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w)/g, (m) => m.toUpperCase());
+}
+
 // ponytail: model doesn't reliably obey the prompt's limits/casing/punctuation rules, so enforce them here as the single source of truth.
 function sanitizeSeo(raw: { title?: string; description?: string; keywords?: string[] }, limits: { maxTitle: number; maxDesc: number; maxKeywords: number }) {
-  const title = (raw.title ?? "").trim().replace(/\.+$/, "").slice(0, limits.maxTitle).trim();
+  const title = toSentenceCase((raw.title ?? "").trim().replace(/\.+$/, "")).slice(0, limits.maxTitle).trim();
   const description = (raw.description ?? "").trim().slice(0, limits.maxDesc).trim();
   const keywords = [...new Set((raw.keywords ?? []).map((k) => String(k).trim().toLowerCase()).filter(Boolean))]
     .slice(0, limits.maxKeywords);
