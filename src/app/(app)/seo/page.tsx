@@ -243,7 +243,8 @@ function SEOGeneratorContent() {
       let body: Record<string, unknown>;
       if (singleFile.size > 3 * 1024 * 1024) {
         const fileUri = await uploadFileToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
-        body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+        // ponytail: an uploaded file is only readable by the key that uploaded it, so don't rotate keys here.
+        body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: [geminiKeys[0]] };
       } else {
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -319,13 +320,15 @@ function SEOGeneratorContent() {
     }
     setIsBulkGenerating(true);
     const completed: SeoEntry[] = [];
-    for (const item of pending) {
+    for (const [index, item] of pending.entries()) {
       setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
       try {
+        // ponytail: spread uploads round-robin across configured keys so one key's quota doesn't get hammered alone.
+        const uploadKey = geminiKeys[index % geminiKeys.length];
         let body: Record<string, unknown>;
         if (item.file.size > 3 * 1024 * 1024) {
-          const fileUri = await uploadFileToGemini(item.file, geminiKeys[0]);
-          body = { fileUri, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+          const fileUri = await uploadFileToGemini(item.file, uploadKey);
+          body = { fileUri, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: [uploadKey] };
         } else {
           const base64 = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
