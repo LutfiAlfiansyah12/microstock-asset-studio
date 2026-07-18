@@ -35,7 +35,7 @@ function maskKey(key: string): string {
 type KeyStatus = "idle" | "testing" | "ok" | "limit" | "error";
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>({ geminiKeys: [], geminiModel: "gemini-2.5-flash" });
+  const [settings, setSettings] = useState<AppSettings>({ geminiKeys: [], geminiModel: "gemini-flash-latest" });
   const [newKey, setNewKey] = useState("");
   const [showNewKey, setShowNewKey] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
@@ -341,7 +341,7 @@ export default function SettingsPage() {
             </ol>
             <Separator className="my-3" />
             <p className="text-xs text-muted-foreground">
-              Free tier Google AI Studio: ~1,500 request/hari per key dengan <span className="font-medium">gemini-2.5-flash</span>.
+              Free tier Google AI Studio: ~1,500 request/hari per key dengan <span className="font-medium">gemini-flash-latest</span>.
             </p>
           </CardContent>
         </Card>

@@ -131,7 +131,7 @@ Kembalikan HANYA objek JSON valid (tanpa teks lain di luar JSON):
         config: { tools: [{ googleSearch: {} }] },
       });
       return response.text;
-    }, buildModelChain(model || "gemini-2.5-flash"));
+    }, buildModelChain(model || "gemini-flash-latest"));
 
     const parsed: TrendData = JSON.parse(extractJson(rawText ?? ""));
     return NextResponse.json(parsed);

@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 export const GEMINI_MODELS = [
-  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Rekomendasi)" },
+  { value: "gemini-flash-latest", label: "Gemini Flash (Rekomendasi)" },
   { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Lebih pintar, lebih lambat)" },
   { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Cepat & hemat)" },
 ] as const;
@@ -19,7 +19,15 @@ function isRateLimitError(err: unknown): boolean {
 function isUnavailableError(err: unknown): boolean {
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
-    return msg.includes("503") || msg.includes("unavailable") || msg.includes("high demand") || msg.includes("overloaded");
+    return (
+      msg.includes("503") ||
+      msg.includes("unavailable") ||
+      msg.includes("high demand") ||
+      msg.includes("overloaded") ||
+      msg.includes("404") ||
+      msg.includes("not_found") ||
+      msg.includes("no longer available")
+    );
   }
   return false;
 }
@@ -86,8 +94,8 @@ export async function withGemini<T>(
   throw new Error(`Semua model tidak tersedia. Error: ${(lastError as Error)?.message}`);
 }
 
-// Build fallback model chain: user's choice first, then gemini-2.0-flash as fallback
+// Build fallback model chain: user's choice first, then other known-good models as fallback
 export function buildModelChain(primary: string): string[] {
-  const fallback = "gemini-2.0-flash";
-  return primary === fallback ? [primary] : [primary, fallback];
+  const fallbacks = ["gemini-flash-latest", "gemini-2.0-flash"].filter((m) => m !== primary);
+  return [primary, ...fallbacks];
 }

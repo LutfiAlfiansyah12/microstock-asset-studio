@@ -79,7 +79,7 @@ Return ONLY a valid JSON array with EXACTLY ${n} items, no other text:
           contents: iconSetPrompt,
         });
         return response.text;
-      }, buildModelChain(model || "gemini-2.5-flash"));
+      }, buildModelChain(model || "gemini-flash-latest"));
 
       const parsed = JSON.parse(extractJson(rawText ?? ""));
       if (!Array.isArray(parsed)) throw new Error("Format respons tidak valid");
@@ -154,7 +154,7 @@ Kembalikan HANYA array JSON valid dengan TEPAT ${n} item, tanpa teks lain:
         contents: prompt,
       });
       return response.text;
-    }, buildModelChain(model || "gemini-2.5-flash"));
+    }, buildModelChain(model || "gemini-flash-latest"));
 
     const parsed = JSON.parse(extractJson(rawText ?? ""));
     if (!Array.isArray(parsed)) throw new Error("Format respons tidak valid");

@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         contents: [videoPart, { text: PROMPT }],
       });
       return response.text;
-    }, buildModelChain(model || "gemini-2.5-flash"));
+    }, buildModelChain(model || "gemini-flash-latest"));
 
     return NextResponse.json(JSON.parse(extractJson(rawText ?? "")));
   } catch (err) {
