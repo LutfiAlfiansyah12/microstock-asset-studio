@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 export const GEMINI_MODELS = [
   { value: "gemini-flash-latest", label: "Gemini Flash (Rekomendasi)" },
   { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Lebih pintar, lebih lambat)" },
-  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Cepat & hemat)" },
+  { value: "gemini-3.1-pro", label: "Gemini 3.1 Pro (High)" },
 ] as const;
 
 export type GeminiModel = typeof GEMINI_MODELS[number]["value"];
@@ -96,6 +96,6 @@ export async function withGemini<T>(
 
 // Build fallback model chain: user's choice first, then other known-good models as fallback
 export function buildModelChain(primary: string): string[] {
-  const fallbacks = ["gemini-flash-latest", "gemini-2.0-flash"].filter((m) => m !== primary);
+  const fallbacks = ["gemini-flash-latest", "gemini-3.1-pro"].filter((m) => m !== primary);
   return [primary, ...fallbacks];
 }
