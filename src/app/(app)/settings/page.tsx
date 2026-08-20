@@ -319,9 +319,9 @@ export default function SettingsPage() {
             </Select>
 
             <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 rounded-md p-3">
-              <p><span className="font-medium">2.5 Flash</span> — Paling seimbang. Cepat, hemat quota, cukup pintar. Cocok untuk daily use.</p>
+              <p><span className="font-medium">Gemini Flash (Latest)</span> — Paling seimbang. Cepat, hemat quota, cukup pintar. Cocok untuk daily use.</p>
               <p><span className="font-medium">2.5 Pro</span> — Hasil lebih detail, tapi lebih lambat dan quota lebih cepat habis.</p>
-              <p><span className="font-medium">2.0 Flash</span> — Paling hemat quota. Untuk backup jika quota 2.5 habis.</p>
+              <p><span className="font-medium">2.5 Flash</span> — Cepat & hemat. Alternatif ringan dari 2.5 Pro.</p>
             </div>
           </CardContent>
         </Card>
