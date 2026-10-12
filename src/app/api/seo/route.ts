@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         ],
       });
       return response.text;
-    }, buildModelChain(model || "gemini-flash-latest"));
+    }, buildModelChain(model || "gemini-3.8-flash"));
 
     const parsed = JSON.parse(extractJson(rawText ?? ""));
     return NextResponse.json(sanitizeSeo(parsed, platformLimits[platform] ?? platformLimits.adobe));

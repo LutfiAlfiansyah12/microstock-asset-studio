@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     const client = new GoogleGenAI({ apiKey: key });
     await client.models.generateContent({
-      model: model || "gemini-flash-latest",
+      model: model || "gemini-3.8-flash",
       contents: "Reply with just the word: OK",
     });
 

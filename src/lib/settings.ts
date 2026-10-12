@@ -9,7 +9,7 @@ export type AppSettings = {
 
 const defaults: AppSettings = {
   geminiKeys: [],
-  geminiModel: "gemini-flash-latest",
+  geminiModel: "gemini-3.8-flash",
 };
 
 import { GEMINI_MODELS } from "./gemini";

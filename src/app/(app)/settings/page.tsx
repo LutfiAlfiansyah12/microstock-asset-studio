@@ -35,7 +35,7 @@ function maskKey(key: string): string {
 type KeyStatus = "idle" | "testing" | "ok" | "limit" | "error";
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>({ geminiKeys: [], geminiModel: "gemini-flash-latest" });
+  const [settings, setSettings] = useState<AppSettings>({ geminiKeys: [], geminiModel: "gemini-3.8-flash" });
   const [newKey, setNewKey] = useState("");
   const [showNewKey, setShowNewKey] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
@@ -319,9 +319,9 @@ export default function SettingsPage() {
             </Select>
 
             <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 rounded-md p-3">
-              <p><span className="font-medium">Gemini Flash (Latest)</span> — Paling seimbang. Cepat, hemat quota, cukup pintar. Cocok untuk daily use.</p>
-              <p><span className="font-medium">2.5 Pro</span> — Hasil lebih detail, tapi lebih lambat dan quota lebih cepat habis.</p>
-              <p><span className="font-medium">2.5 Flash</span> — Cepat & hemat. Alternatif ringan dari 2.5 Pro.</p>
+              <p><span className="font-medium">Gemini 3.8 Flash</span> — Paling seimbang. Cepat, hemat quota, sangat pintar. Cocok untuk daily use.</p>
+              <p><span className="font-medium">3.1 Pro</span> — Hasil lebih detail & reasoning kuat, tapi lebih lambat dan quota lebih cepat habis.</p>
+              <p><span className="font-medium">2.5 Flash</span> — Legacy. Masih bisa dipakai tapi akan segera pensiun.</p>
             </div>
           </CardContent>
         </Card>
@@ -341,7 +341,7 @@ export default function SettingsPage() {
             </ol>
             <Separator className="my-3" />
             <p className="text-xs text-muted-foreground">
-              Free tier Google AI Studio: ~1,500 request/hari per key dengan <span className="font-medium">gemini-flash-latest</span>.
+              Free tier Google AI Studio: ~1,500 request/hari per key dengan <span className="font-medium">gemini-3.8-flash</span>.
             </p>
           </CardContent>
         </Card>
