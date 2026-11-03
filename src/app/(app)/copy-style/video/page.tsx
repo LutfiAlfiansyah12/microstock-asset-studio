@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, getModuleKeys } from "@/lib/settings";
 
 type VideoAnalysisResult = {
   pacing: string;
@@ -79,8 +79,9 @@ export default function CopyStyleVideoPage() {
   }
 
   async function handleAnalyze() {
-    const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
+    const keys = getModuleKeys("analysis");
+    const { geminiModel } = loadSettings();
+    if (!keys.length) {
       toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
       return;
     }
@@ -95,12 +96,12 @@ export default function CopyStyleVideoPage() {
     try {
       let body: object;
       if (videoFile) {
-        const fileUri = await uploadVideoToGemini(videoFile, geminiKeys[0]);
+        const fileUri = await uploadVideoToGemini(videoFile, keys[0]);
         setAnalyzeStatus("Menganalisis gaya video...");
-        body = { fileUri, mimeType: videoFile.type || "video/mp4", model: geminiModel, keys: geminiKeys };
+        body = { fileUri, mimeType: videoFile.type || "video/mp4", model: geminiModel, keys };
       } else {
         setAnalyzeStatus("Menganalisis gaya video...");
-        body = { videoUrl: urlInput, model: geminiModel, keys: geminiKeys };
+        body = { videoUrl: urlInput, model: geminiModel, keys };
       }
       const res = await fetch("/api/copy-style/video", {
         method: "POST",

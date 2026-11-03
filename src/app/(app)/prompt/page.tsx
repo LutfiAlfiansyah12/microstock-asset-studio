@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, getModuleKeys } from "@/lib/settings";
 import { savePromptSession } from "@/lib/history";
 
 type PromptItem = { id: string; text: string; negative: string; aspectRatio: string };
@@ -120,8 +120,9 @@ function PromptGeneratorContent() {
   }
 
   async function handleGenerate() {
-    const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
+    const keys = getModuleKeys("generator");
+    const { geminiModel } = loadSettings();
+    if (!keys.length) {
       toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
       return;
     }
@@ -131,7 +132,7 @@ function PromptGeneratorContent() {
       const res = await fetch("/api/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword: temaUtama.trim() || keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys: geminiKeys, seamless, abstrak, iconSet }),
+        body: JSON.stringify({ keyword: temaUtama.trim() || keyword, themes, style, brief, assetType, targetModel, count: batchCount, model: geminiModel, keys, seamless, abstrak, iconSet }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generate gagal");

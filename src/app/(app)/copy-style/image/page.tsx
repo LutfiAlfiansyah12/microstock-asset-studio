@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, getModuleKeys } from "@/lib/settings";
 
 type AnalysisResult = {
   composition: string;
@@ -56,15 +56,16 @@ export default function CopyStyleImagePage() {
   }
 
   async function handleAnalyze() {
-    const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
+    const keys = getModuleKeys("analysis");
+    const { geminiModel } = loadSettings();
+    if (!keys.length) {
       toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
       return;
     }
 
     setIsAnalyzing(true);
     try {
-      let body: Record<string, unknown> = { model: geminiModel, keys: geminiKeys };
+      let body: Record<string, unknown> = { model: geminiModel, keys };
 
       if (previewSrc) {
         const [prefix, data] = previewSrc.split(",");

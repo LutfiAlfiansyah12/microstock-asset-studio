@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { saveSeoSession, type SeoEntry } from "@/lib/history";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, getModuleKeys } from "@/lib/settings";
 
 const platformRules = {
   adobe: { maxKeywords: 49, maxTitle: 200, maxDesc: 200, platform: "Adobe Stock" },
@@ -242,8 +242,9 @@ function SEOGeneratorContent() {
 
   async function handleGenerate() {
     if (!singleFile) return;
-    const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
+    const keys = getModuleKeys("generator");
+    const { geminiModel } = loadSettings();
+    if (!keys.length) {
       toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
       return;
     }
@@ -251,9 +252,9 @@ function SEOGeneratorContent() {
     try {
       let body: Record<string, unknown>;
       if (singleFile.size > 3 * 1024 * 1024) {
-        const fileUri = await uploadFileToGemini(singleFile, geminiKeys[0], setAnalyzeStatus);
+        const fileUri = await uploadFileToGemini(singleFile, keys[0], setAnalyzeStatus);
         // ponytail: an uploaded file is only readable by the key that uploaded it, so don't rotate keys here.
-        body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: [geminiKeys[0]] };
+        body = { fileUri, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: [keys[0]] };
       } else {
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -261,7 +262,7 @@ function SEOGeneratorContent() {
           reader.onerror = reject;
           reader.readAsDataURL(singleFile!);
         });
-        body = { imageBase64: base64, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+        body = { imageBase64: base64, mimeType: singleFile.type, platform, assetType, keyword, model: geminiModel, keys };
       }
       setAnalyzeStatus("Generating SEO...");
       const res = await fetch("/api/seo", {
@@ -322,8 +323,9 @@ function SEOGeneratorContent() {
   async function handleBulkGenerate() {
     const pending = bulkItems.filter((i) => i.status !== "done");
     if (!pending.length) return;
-    const { geminiKeys, geminiModel } = loadSettings();
-    if (!geminiKeys.length) {
+    const keys = getModuleKeys("generator");
+    const { geminiModel } = loadSettings();
+    if (!keys.length) {
       toast.error("Tambahkan API key Gemini di halaman Settings terlebih dahulu.");
       return;
     }
@@ -338,7 +340,7 @@ function SEOGeneratorContent() {
       setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
       try {
         // ponytail: spread uploads round-robin across configured keys so one key's quota doesn't get hammered alone.
-        const uploadKey = geminiKeys[index % geminiKeys.length];
+        const uploadKey = keys[index % keys.length];
         let body: Record<string, unknown>;
         if (item.file.size > 3 * 1024 * 1024) {
           const fileUri = await uploadFileToGemini(item.file, uploadKey);
@@ -350,7 +352,7 @@ function SEOGeneratorContent() {
             reader.onerror = reject;
             reader.readAsDataURL(item.file);
           });
-          body = { imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys: geminiKeys };
+          body = { imageBase64: base64, mimeType: item.file.type, platform, assetType, keyword, model: geminiModel, keys };
         }
         const res = await fetch("/api/seo", {
           method: "POST",

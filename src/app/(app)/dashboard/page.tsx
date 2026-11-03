@@ -27,7 +27,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, getModuleKeys } from "@/lib/settings";
 import type { TrendData } from "@/app/api/trend/route";
 
 const chartConfig = {
@@ -87,8 +87,9 @@ export default function DashboardPage() {
   const [noKeys, setNoKeys] = useState(false);
 
   const fetchTrends = useCallback(async () => {
+    const keys = getModuleKeys("trend");
     const settings = loadSettings();
-    if (settings.geminiKeys.length === 0) {
+    if (keys.length === 0) {
       setNoKeys(true);
       return;
     }
@@ -100,7 +101,7 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          keys: settings.geminiKeys,
+          keys,
           model: settings.geminiModel,
           platform,
           assetType,
