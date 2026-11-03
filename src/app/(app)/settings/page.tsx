@@ -319,9 +319,9 @@ export default function SettingsPage() {
             </Select>
 
             <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 rounded-md p-3">
-              <p><span className="font-medium">Gemini 3.8 Flash</span> — Paling seimbang. Cepat, hemat quota, sangat pintar. Cocok untuk daily use.</p>
+              <p><span className="font-medium">Gemini 3.8 Flash</span> — Paling seimbang. Cepat, hemat quota, sangat pintar. Rekomendasi utama.</p>
+              <p><span className="font-medium">3.5 Flash-Lite</span> — Super cepat dan sangat hemat quota. Paling stabil untuk pemrosesan batch/bulk.</p>
               <p><span className="font-medium">3.1 Pro</span> — Hasil lebih detail & reasoning kuat, tapi lebih lambat dan quota lebih cepat habis.</p>
-              <p><span className="font-medium">2.5 Flash</span> — Legacy. Masih bisa dipakai tapi akan segera pensiun.</p>
             </div>
           </CardContent>
         </Card>

@@ -204,16 +204,25 @@ function SEOGeneratorContent() {
     const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });
     onStatus?.("Mengupload aset ke Gemini...");
-    const uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "application/octet-stream" } });
-    const name = uploaded.name!;
+    let uploaded;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        uploaded = await ai.files.upload({ file, config: { mimeType: file.type || "application/octet-stream" } });
+        break;
+      } catch (err) {
+        if (attempt === 1) throw err;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+    const name = uploaded!.name!;
     onStatus?.("Menunggu Gemini memproses aset...");
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       const info = await ai.files.get({ name });
       if (info.state === "ACTIVE") return info.uri!;
       if (info.state === "FAILED") throw new Error("Gemini gagal memproses aset");
       await new Promise((r) => setTimeout(r, 3000));
     }
-    throw new Error("Timeout menunggu Gemini memproses aset (90s)");
+    throw new Error("Timeout menunggu Gemini memproses aset (120s)");
   }
 
   function handleCopy(text: string) {
@@ -320,7 +329,12 @@ function SEOGeneratorContent() {
     }
     setIsBulkGenerating(true);
     const completed: SeoEntry[] = [];
+    let successCount = 0;
     for (const [index, item] of pending.entries()) {
+      if (index > 0) {
+        // Cooldown antar file (terutama video) untuk menghindari rate limit & spike demand 503
+        await new Promise((r) => setTimeout(r, 2500));
+      }
       setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "generating" } : i));
       try {
         // ponytail: spread uploads round-robin across configured keys so one key's quota doesn't get hammered alone.
@@ -347,13 +361,20 @@ function SEOGeneratorContent() {
         if (!res.ok) throw new Error(data.error || "Generate gagal");
         setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "done", result: data } : i));
         completed.push({ fileName: item.file.name, result: data });
+        successCount++;
       } catch (err) {
         setBulkItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "error", error: (err as Error).message } : i));
       }
     }
     if (completed.length) saveSeoSession({ platform, assetType, keyword, items: completed });
     setIsBulkGenerating(false);
-    toast.success(`${pending.length} aset berhasil di-generate SEO-nya!`);
+    if (successCount === pending.length) {
+      toast.success(`Semua ${successCount} aset berhasil di-generate SEO-nya!`);
+    } else if (successCount > 0) {
+      toast.warning(`${successCount} dari ${pending.length} aset berhasil. File yang gagal bisa di-generate ulang.`);
+    } else {
+      toast.error("Gagal men-generate aset. Silakan periksa detail error pada masing-masing item.");
+    }
   }
 
   function handleBulkExport() {
