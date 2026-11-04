@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 export const GEMINI_MODELS = [
   { value: "gemini-3.8-flash", label: "Gemini 3.8 Flash (Rekomendasi - Cepat & Cerdas)" },
   { value: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite (Super Cepat & Hemat Quota)" },
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Stabil & Teruji)" },
   { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Lebih Pintar, Lebih Lambat)" },
 ] as const;
 
@@ -27,7 +28,21 @@ function isRateLimitError(err: unknown): boolean {
     msg.includes("429") ||
     msg.includes("quota") ||
     msg.includes("rate limit") ||
-    msg.includes("resource_exhausted")
+    msg.includes("resource_exhausted") ||
+    msg.includes("too many requests")
+  );
+}
+
+function isAuthError(err: unknown): boolean {
+  const msg = getErrorMessage(err).toLowerCase();
+  return (
+    msg.includes("api_key_invalid") ||
+    msg.includes("api key not valid") ||
+    msg.includes("invalid api key") ||
+    msg.includes("401") ||
+    msg.includes("403") ||
+    msg.includes("permission_denied") ||
+    msg.includes("unauthenticated")
   );
 }
 
@@ -41,6 +56,8 @@ function isTransientServerError(err: unknown): boolean {
     msg.includes("unavailable") ||
     msg.includes("service unavailable") ||
     msg.includes("500") ||
+    msg.includes("502") ||
+    msg.includes("504") ||
     msg.includes("internal server error")
   );
 }
@@ -52,7 +69,8 @@ function isModelUnavailableError(err: unknown): boolean {
     msg.includes("not_found") ||
     msg.includes("no longer available") ||
     msg.includes("is not supported") ||
-    isTransientServerError(err)
+    msg.includes("not found for api version") ||
+    msg.includes("model not found")
   );
 }
 
@@ -67,22 +85,21 @@ async function callWithRetry<T>(
   model: string,
   fn: (client: GoogleGenAI, model: string) => Promise<T>
 ): Promise<T> {
-  const maxAttempts = 3;
+  const maxAttempts = 2;
   for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     try {
       return await fn(client, model);
     } catch (err) {
       // 1. Files API replication delay
       if (isFileNotReadyError(err) && attempt < maxAttempts) {
-        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
         continue;
       }
 
       // 2. Transient server error (503 high demand spike / overloaded)
-      // Google: "Spikes in demand are usually temporary. Please try again later."
-      if (isTransientServerError(err) && attempt < maxAttempts) {
-        // Exponential backoff: 3s, 6s, 9s
-        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+      // Retry once quickly (1.5s); if still failing, let withGemini rotate to the next key or model immediately
+      if (isTransientServerError(err) && attempt < 1) {
+        await new Promise((r) => setTimeout(r, 1500));
         continue;
       }
 
@@ -98,7 +115,11 @@ export async function withGemini<T>(
   fn: (client: GoogleGenAI, model: string) => Promise<T>,
   models: string[]
 ): Promise<T> {
-  if (keys.length === 0) {
+  const validKeys = (keys || [])
+    .map((k) => (typeof k === "string" ? k.trim() : ""))
+    .filter((k) => k.length > 0);
+
+  if (validKeys.length === 0) {
     throw new Error("Tidak ada API key yang dikonfigurasi. Tambahkan di halaman Settings.");
   }
 
@@ -107,35 +128,41 @@ export async function withGemini<T>(
   for (const model of models) {
     let modelUnavailable = false;
 
-    for (const key of keys) {
+    for (const key of validKeys) {
       try {
         const client = new GoogleGenAI({ apiKey: key });
         return await callWithRetry(client, model, fn);
       } catch (err) {
-        if (isRateLimitError(err)) {
-          lastError = err;
-          continue; // try next key
-        }
+        lastError = err;
+
+        // If the model itself is not recognized or not available, skip to next model
         if (isModelUnavailableError(err)) {
-          lastError = err;
           modelUnavailable = true;
-          break; // skip remaining keys, try next model
+          break;
         }
-        throw err;
+
+        // For rate limit, auth error, 503, or any other error on this specific key:
+        // Try the NEXT key in the pool!
+        continue;
       }
     }
 
-    if (!modelUnavailable) {
-      lastError = new Error(`Semua API key kena rate limit untuk model ${model}.`);
+    if (modelUnavailable) {
+      continue; // Try next model in chain
     }
   }
 
   const errorMsg = (lastError as Error)?.message || getErrorMessage(lastError);
-  throw new Error(`Semua model tidak tersedia: ${errorMsg}`);
+  throw new Error(`Semua API key dan model gagal diproses: ${errorMsg}`);
 }
 
 // Build fallback model chain: user's choice first, then other known-good models as fallback
 export function buildModelChain(primary: string): string[] {
-  const fallbacks = ["gemini-3.8-flash", "gemini-3.5-flash-lite"].filter((m) => m !== primary);
-  return [primary, ...fallbacks];
+  const candidateChain = [
+    primary,
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash",
+  ];
+  return Array.from(new Set(candidateChain.filter(Boolean)));
 }

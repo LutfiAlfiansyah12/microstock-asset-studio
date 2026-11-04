@@ -490,6 +490,7 @@ export default function SettingsPage() {
                 <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 rounded-md p-3">
                   <p><span className="font-medium text-foreground">Gemini 3.8 Flash</span> — Paling seimbang. Cepat, hemat quota, sangat pintar. Rekomendasi utama.</p>
                   <p><span className="font-medium text-foreground">3.5 Flash-Lite</span> — Super cepat dan sangat hemat quota. Paling stabil untuk pemrosesan batch/bulk.</p>
+                  <p><span className="font-medium text-foreground">2.5 Flash</span> — Model stabil & teruji. Kompatibel luas dengan semua akun Google AI Studio.</p>
                   <p><span className="font-medium text-foreground">3.1 Pro</span> — Hasil lebih detail & reasoning kuat, tapi lebih lambat dan quota lebih cepat habis.</p>
                 </div>
               </CardContent>

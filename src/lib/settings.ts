@@ -57,14 +57,17 @@ export function saveSettings(settings: AppSettings): void {
 }
 
 /**
- * Returns dedicated API keys for the specific module if configured.
- * If no specific keys exist, automatically falls back to global geminiKeys.
+ * Returns dedicated API keys for the specific module if configured,
+ * followed by global fallback keys.
+ * Prioritizes module-specific keys while ensuring users aren't left stranded
+ * when a single dedicated key hits rate limit or quota issues.
  */
 export function getModuleKeys(module: ModuleType): string[] {
   const settings = loadSettings();
-  const specific = settings.moduleKeys?.[module];
-  if (specific && specific.length > 0) {
-    return specific;
-  }
-  return settings.geminiKeys;
+  const specific = settings.moduleKeys?.[module] ?? [];
+  const globalKeys = settings.geminiKeys ?? [];
+  const combined = Array.from(new Set([...specific, ...globalKeys])).filter(
+    (k) => typeof k === "string" && k.trim().length > 0
+  );
+  return combined;
 }

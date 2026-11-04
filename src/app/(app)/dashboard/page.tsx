@@ -46,16 +46,26 @@ function StatSkeleton() {
   );
 }
 
-function EmptyState({ onGoSettings }: { onGoSettings?: () => void }) {
+function EmptyState({ onPreview }: { onPreview?: () => void }) {
   return (
     <Card className="col-span-full">
       <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
         <Settings className="h-10 w-10 text-muted-foreground opacity-40" />
         <p className="font-medium">Belum ada API key</p>
-        <p className="text-sm text-muted-foreground">Tambahkan Gemini API key di Settings untuk melihat data tren real-time.</p>
-        <Link href="/settings" className={cn(buttonVariants({ size: "sm" }), "mt-2")}>
-          Ke Settings
-        </Link>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Tambahkan Gemini API key di Settings untuk melihat data tren real-time via AI, atau muat data kurasi offline untuk eksplorasi.
+        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <Link href="/settings" className={cn(buttonVariants({ size: "sm" }))}>
+            Ke Settings
+          </Link>
+          {onPreview && (
+            <Button variant="outline" size="sm" onClick={onPreview}>
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Lihat Data Demo (Offline)
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -86,41 +96,73 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [noKeys, setNoKeys] = useState(false);
 
-  const fetchTrends = useCallback(async () => {
-    const keys = getModuleKeys("trend");
-    const settings = loadSettings();
-    if (keys.length === 0) {
-      setNoKeys(true);
-      return;
-    }
-    setNoKeys(false);
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/trend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          keys,
-          model: settings.geminiModel,
-          platform,
-          assetType,
-          region,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Gagal memuat data");
-      setData(json);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-    } finally {
-      setIsLoading(false);
-    }
+  const getCacheKey = useCallback(() => {
+    return `microstock_trend_${platform}_${assetType}_${region}`;
   }, [platform, assetType, region]);
 
+  const fetchTrends = useCallback(
+    async (allowDemo = false) => {
+      const keys = getModuleKeys("trend");
+      const settings = loadSettings();
+
+      if (keys.length === 0 && !allowDemo) {
+        // Try to load cached data first
+        try {
+          const cached = localStorage.getItem(getCacheKey());
+          if (cached) {
+            setData(JSON.parse(cached));
+            setNoKeys(false);
+            return;
+          }
+        } catch {}
+
+        setNoKeys(true);
+        return;
+      }
+
+      setNoKeys(false);
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/trend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keys,
+            model: settings.geminiModel,
+            platform,
+            assetType,
+            region,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Gagal memuat data");
+        setData(json);
+
+        try {
+          localStorage.setItem(getCacheKey(), JSON.stringify(json));
+        } catch {}
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
+        setError(errMsg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [platform, assetType, region, getCacheKey]
+  );
+
   useEffect(() => {
+    // Attempt cache hydration immediately on filter change
+    try {
+      const cached = localStorage.getItem(getCacheKey());
+      if (cached) {
+        setData(JSON.parse(cached));
+      }
+    } catch {}
+
     fetchTrends();
-  }, [fetchTrends]);
+  }, [fetchTrends, getCacheKey]);
 
   const isEmpty = !isLoading && !data && !error;
 
@@ -136,7 +178,7 @@ export default function DashboardPage() {
                 Diperbarui: {data.updatedAt}
               </span>
             )}
-            <Button variant="outline" size="sm" onClick={fetchTrends} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={() => fetchTrends(false)} disabled={isLoading}>
               <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
               {isLoading ? "Memuat..." : "Refresh"}
             </Button>
@@ -183,16 +225,27 @@ export default function DashboardPage() {
         </div>
 
         {/* No keys state */}
-        {noKeys && (
+        {noKeys && !data && (
           <div className="grid">
-            <EmptyState />
+            <EmptyState onPreview={() => fetchTrends(true)} />
           </div>
         )}
 
-        {/* Error state */}
-        {error && !isLoading && (
+        {/* Warning banner (when using fallback data or when live API had notes) */}
+        {data?.warning && !isLoading && (
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span className="flex-1">{data.warning}</span>
+            <Link href="/settings" className="font-semibold underline hover:no-underline shrink-0">
+              Cek Settings
+            </Link>
+          </div>
+        )}
+
+        {/* Error state (only when no data is available at all) */}
+        {error && !data && !isLoading && (
           <div className="grid">
-            <ErrorState message={error} onRetry={fetchTrends} />
+            <ErrorState message={error} onRetry={() => fetchTrends(false)} />
           </div>
         )}
 
