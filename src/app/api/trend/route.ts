@@ -70,8 +70,19 @@ function getFallbackTrends(platform: string, assetType: string, region: string):
       ? "footage video 4K & b-roll"
       : "aset visual microstock";
 
+  const regionName =
+    region === "id"
+      ? "Indonesia"
+      : region === "us"
+      ? "Amerika Serikat"
+      : region === "eu"
+      ? "Eropa"
+      : region === "as"
+      ? "Asia"
+      : "global";
+
   return {
-    summary: `Pasar ${platformName} saat ini didominasi oleh persiapan konten liburan akhir tahun, tema teknologi AI terapan, dan persiapan musim semi/Ramadan untuk ${typeDesc}.`,
+    summary: `Pasar ${platformName} (${regionName}) saat ini didominasi oleh persiapan konten liburan akhir tahun, tema teknologi AI terapan, dan persiapan musim semi/Ramadan untuk ${typeDesc}.`,
     updatedAt: today,
     stats: {
       risingCount: 28,
@@ -365,7 +376,7 @@ Kembalikan HANYA objek JSON valid (tanpa teks lain di luar JSON):
         if (parsed.summary && Array.isArray(parsed.risingKeywords)) {
           return NextResponse.json(parsed);
         }
-      } catch (parseErr) {
+      } catch {
         liveError = "Gagal memproses format JSON dari respon AI.";
       }
     }
@@ -379,7 +390,7 @@ Kembalikan HANYA objek JSON valid (tanpa teks lain di luar JSON):
         ? `Menampilkan data tren terkurasi (offline mode). Catatan API: ${liveError}`
         : "Menampilkan data tren terkurasi.",
     });
-  } catch (err: unknown) {
+  } catch {
     const fallback = getFallbackTrends(platform, assetType, region);
     return NextResponse.json({
       ...fallback,

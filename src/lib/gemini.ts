@@ -22,7 +22,7 @@ function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
-function isRateLimitError(err: unknown): boolean {
+export function isRateLimitError(err: unknown): boolean {
   const msg = getErrorMessage(err).toLowerCase();
   return (
     msg.includes("429") ||
@@ -33,7 +33,7 @@ function isRateLimitError(err: unknown): boolean {
   );
 }
 
-function isAuthError(err: unknown): boolean {
+export function isAuthError(err: unknown): boolean {
   const msg = getErrorMessage(err).toLowerCase();
   return (
     msg.includes("api_key_invalid") ||

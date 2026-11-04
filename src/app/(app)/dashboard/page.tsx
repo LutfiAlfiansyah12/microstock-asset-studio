@@ -164,8 +164,6 @@ export default function DashboardPage() {
     fetchTrends();
   }, [fetchTrends, getCacheKey]);
 
-  const isEmpty = !isLoading && !data && !error;
-
   return (
     <div className="flex flex-col flex-1">
       <PageHeader
