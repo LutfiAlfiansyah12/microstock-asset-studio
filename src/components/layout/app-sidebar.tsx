@@ -47,7 +47,7 @@ const navItems: NavGroup[] = [
   {
     group: "Riset & Analisis",
     items: [
-      { href: "/dashboard", label: "Dasbor Tren", icon: BarChart3, badge: "Live" },
+      { href: "/dashboard", label: "Dasbor Tren", icon: BarChart3 },
       { href: "/calendar", label: "Kalender Musiman", icon: Calendar },
     ],
   },
@@ -173,22 +173,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-2 pb-3.5 pt-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               render={<Link href="/settings" />}
               isActive={pathname === "/settings"}
-              tooltip="Settings"
+              tooltip="Pengaturan"
             >
               <Settings className="h-4 w-4" />
               <span>Pengaturan</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <div className="px-2 pb-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-          v1.0 · Personal · Single-user
-        </div>
       </SidebarFooter>
     </Sidebar>
   );

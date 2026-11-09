@@ -647,7 +647,7 @@ function SEOGeneratorContent() {
                   <span className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP, MP4, MOV — bisa pilih banyak file</span>
                 </button>
               ) : (
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {bulkItems.map((item) => (
                     <Card key={item.id}>
                       <CardContent className="p-3">
