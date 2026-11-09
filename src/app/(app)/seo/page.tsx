@@ -64,6 +64,74 @@ type BulkItem = {
   error?: string;
 };
 
+interface CsvExportItem {
+  filename: string;
+  title: string;
+  description: string;
+  keywords: string[];
+  assetType?: string;
+}
+
+function escapeCsvCell(value: string | number | undefined | null): string {
+  if (value === undefined || value === null) return "";
+  const str = String(value).replace(/[\r\n]+/g, " ").trim();
+  if (str.includes('"') || str.includes(",") || str.includes("\n") || str.includes("\r")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function buildPlatformCsv(items: CsvExportItem[], platform: string, defaultAssetType: string = "photo"): string {
+  if (platform === "adobe") {
+    // Format Resmi Adobe Stock CSV:
+    // Filename,Title,Keywords,Category,Releases
+    // image_filename.jpg,A short description of what the asset represents,"Keyword1, Keyword2, Keyword3, Keyword4, Keyword5",3,"Haleeq Whitten, Ludovic Hillion, Morgan Greentstreet, Christine Manore"
+    const header = "Filename,Title,Keywords,Category,Releases";
+    const rows = items.map((item) => {
+      const filename = escapeCsvCell(item.filename);
+      const title = escapeCsvCell((item.title || item.description || "").slice(0, 200));
+      const keywords = escapeCsvCell(item.keywords.slice(0, 49).join(", "));
+      const category = "";
+      const releases = "";
+      return `${filename},${title},${keywords},${category},${releases}`;
+    });
+    return [header, ...rows].join("\r\n");
+  }
+
+  if (platform === "shutterstock") {
+    // Format Resmi Shutterstock CSV:
+    // Filename,Description,Keywords,Categories,Editorial,Mature content,illustration
+    // footage_filename.mov,A short and simple description,"keyword 1,keyword","nature,transportation",no,yes,no
+    const header = "Filename,Description,Keywords,Categories,Editorial,Mature content,illustration";
+    const rows = items.map((item) => {
+      const filename = escapeCsvCell(item.filename);
+      const desc = escapeCsvCell((item.description || item.title || "").slice(0, 400));
+      const keywords = escapeCsvCell(item.keywords.slice(0, 50).join(", "));
+      const categories = "";
+      const editorial = "no";
+      const matureContent = "no";
+      const aType = item.assetType || defaultAssetType;
+      const isIllustration =
+        aType === "vector" || aType === "image" || /\.(ai|eps|svg)$/i.test(item.filename)
+          ? "yes"
+          : "no";
+      return `${filename},${desc},${keywords},${categories},${editorial},${matureContent},${isIllustration}`;
+    });
+    return [header, ...rows].join("\r\n");
+  }
+
+  // Fallback / Vecteezy:
+  const header = "Filename,Title,Description,Keywords";
+  const rows = items.map((item) => {
+    const filename = escapeCsvCell(item.filename);
+    const title = escapeCsvCell(item.title || "");
+    const desc = escapeCsvCell(item.description || "");
+    const keywords = escapeCsvCell(item.keywords.slice(0, 20).join(", "));
+    return `${filename},${title},${desc},${keywords}`;
+  });
+  return [header, ...rows].join("\r\n");
+}
+
 function ValidationIcon({ ok }: { ok: boolean }) {
   return ok ? (
     <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -283,23 +351,39 @@ function SEOGeneratorContent() {
     }
   }
 
-  function handleExportSingle(format: "csv" | "json") {
-    if (!result) return;
-    let content = "";
-    let filename = "";
-    if (format === "json") {
-      content = JSON.stringify(result, null, 2);
-      filename = `seo-${platform}-${Date.now()}.json`;
-    } else {
-      content = `Title,Description,Keywords\n"${result.title}","${result.description}","${result.keywords.join("; ")}"`;
-      filename = `seo-${platform}-${Date.now()}.csv`;
-    }
-    const blob = new Blob([content], { type: "text/plain" });
+  function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function handleExportSingle(format: "csv" | "json") {
+    if (!result) return;
+    if (format === "json") {
+      const content = JSON.stringify(result, null, 2);
+      const filename = `seo-${platform}-${Date.now()}.json`;
+      const blob = new Blob([content], { type: "application/json;charset=utf-8;" });
+      triggerDownload(blob, filename);
+    } else {
+      const items: CsvExportItem[] = [
+        {
+          filename: singleFile?.name || `asset.${assetType === "video" ? "mp4" : "jpg"}`,
+          title: result.title,
+          description: result.description,
+          keywords: result.keywords,
+          assetType,
+        },
+      ];
+      const csvContent = buildPlatformCsv(items, platform, assetType);
+      const filename = `seo-${platform}-${Date.now()}.csv`;
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      triggerDownload(blob, filename);
+    }
     toast.success(`Diekspor sebagai ${format.toUpperCase()}!`);
   }
 
@@ -382,18 +466,19 @@ function SEOGeneratorContent() {
   function handleBulkExport() {
     const done = bulkItems.filter((i) => i.status === "done" && i.result);
     if (!done.length) return;
-    const content = done
-      .map((item) =>
-        `# ${item.file.name}\nTitle: ${item.result!.title}\nDescription: ${item.result!.description}\nKeywords: ${item.result!.keywords.join(", ")}`
-      )
-      .join("\n\n---\n\n");
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `seo-bulk-${platform}-${Date.now()}.txt`;
-    a.click();
-    toast.success("Bulk export selesai!");
+    const items: CsvExportItem[] = done.map((item) => ({
+      filename: item.file.name,
+      title: item.result!.title,
+      description: item.result!.description,
+      keywords: item.result!.keywords,
+      assetType,
+    }));
+    const csvContent = buildPlatformCsv(items, platform, assetType);
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const filename = `seo-bulk-${platform}-${Date.now()}.csv`;
+    triggerDownload(blob, filename);
+    const platformLabel = platformRules[platform as keyof typeof platformRules]?.platform || platform;
+    toast.success(`Export ${done.length} metadata (.csv) format ${platformLabel} berhasil!`);
   }
 
   const bulkDoneCount = bulkItems.filter((i) => i.status === "done").length;
@@ -610,7 +695,7 @@ function SEOGeneratorContent() {
                     {bulkDoneCount > 0 && (
                       <Button variant="outline" onClick={handleBulkExport}>
                         <Download className="h-4 w-4 mr-2" />
-                        Export Semua ({bulkDoneCount})
+                        Export Semua (.csv) ({bulkDoneCount})
                       </Button>
                     )}
                     <Button
