@@ -23,13 +23,12 @@ import {
   Cpu,
   Activity,
   Sparkles,
-  TrendingUp,
   Video,
   Zap,
-  Globe,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { loadSettings, saveSettings, type AppSettings, type ModuleType } from "@/lib/settings";
+import { loadSettings, saveSettings, type AppSettings, type KeyScope } from "@/lib/settings";
 import { GEMINI_MODELS } from "@/lib/gemini";
 
 function maskKey(key: string): string {
@@ -39,45 +38,36 @@ function maskKey(key: string): string {
 
 type KeyStatus = "idle" | "testing" | "ok" | "limit" | "error";
 
-type KeyScope = "global" | ModuleType;
-
 const SCOPE_CONFIG: Record<
   KeyScope,
   { label: string; shortLabel: string; desc: string; icon: React.ComponentType<{ className?: string }> }
 > = {
-  global: {
-    label: "Key Utama (Global Fallback)",
-    shortLabel: "Utama",
-    desc: "Key cadangan umum. Digunakan otomatis oleh modul mana pun yang belum memiliki key khusus.",
-    icon: Globe,
-  },
-  trend: {
-    label: "Dasbor Tren",
-    shortLabel: "Tren",
-    desc: "Dasbor Tren sudah otomatis aktif 100% bebas API key (berbasis Mesin Kalender Musiman Microstock).",
-    icon: TrendingUp,
+  generator: {
+    label: "API Key Generator (Prompt & SEO)",
+    shortLabel: "Generator",
+    desc: "Digunakan pertama kali saat membuat Prompt AI dan mengekstrak metadata SEO.",
+    icon: Zap,
   },
   analysis: {
-    label: "Analisis (Foto & Video)",
+    label: "API Key Analisis (Foto & Video)",
     shortLabel: "Analisis",
-    desc: "Khusus untuk membedah komposisi, pencahayaan, dan gaya sinematik video/foto.",
+    desc: "Digunakan pertama kali saat membedah gaya visual foto dan sinematik video (Copy Style).",
     icon: Video,
   },
-  generator: {
-    label: "Generator (SEO & Prompt)",
-    shortLabel: "Generator",
-    desc: "Khusus pembuatan prompt AI dan ekstraksi metadata SEO (judul, deskripsi, keyword).",
-    icon: Zap,
+  backup: {
+    label: "API Key Backup (Cadangan)",
+    shortLabel: "Backup",
+    desc: "Cadangan otomatis jika kuota Generator ATAU Analisis habis. Tidak saling mengganggu antar modul.",
+    icon: ShieldCheck,
   },
 };
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({
-    geminiKeys: [],
-    moduleKeys: { trend: [], analysis: [], generator: [] },
+    moduleKeys: { generator: [], analysis: [], backup: [] },
     geminiModel: "gemini-3.8-flash",
   });
-  const [activeScope, setActiveScope] = useState<KeyScope>("global");
+  const [activeScope, setActiveScope] = useState<KeyScope>("generator");
   const [newKey, setNewKey] = useState("");
   const [showNewKey, setShowNewKey] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
@@ -97,21 +87,16 @@ export default function SettingsPage() {
   }
 
   function getKeysForScope(scope: KeyScope): string[] {
-    if (scope === "global") return settings.geminiKeys;
     return settings.moduleKeys?.[scope] ?? [];
   }
 
   function updateKeysForScope(scope: KeyScope, nextKeys: string[]) {
-    if (scope === "global") {
-      updateSettings({ geminiKeys: nextKeys });
-    } else {
-      updateSettings({
-        moduleKeys: {
-          ...(settings.moduleKeys ?? {}),
-          [scope]: nextKeys,
-        },
-      });
-    }
+    updateSettings({
+      moduleKeys: {
+        ...(settings.moduleKeys ?? { generator: [], analysis: [], backup: [] }),
+        [scope]: nextKeys,
+      },
+    });
   }
 
   const currentKeys = getKeysForScope(activeScope);
@@ -299,7 +284,7 @@ export default function SettingsPage() {
                     setNewKey("");
                   }}
                 >
-                  <TabsList className="grid grid-cols-4 w-full h-auto p-1 bg-muted/70">
+                  <TabsList className="grid grid-cols-3 w-full h-auto p-1 bg-muted/70">
                     {(Object.keys(SCOPE_CONFIG) as KeyScope[]).map((scope) => {
                       const Icon = SCOPE_CONFIG[scope].icon;
                       const count = getKeysForScope(scope).length;
@@ -341,15 +326,15 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Fallback indicator if module has 0 keys */}
-                {activeScope !== "global" && currentKeys.length === 0 && (
+                {activeScope !== "backup" && currentKeys.length === 0 && (
                   <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg text-xs text-blue-800 dark:text-blue-300 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
                       <span>
-                        Belum ada key khusus. Modul ini saat ini memakai <strong>Key Utama ({settings.geminiKeys.length} key)</strong>.
+                        Belum ada key di tab ini. Fitur ini otomatis akan meminjam <strong>Key Backup ({settings.moduleKeys?.backup?.length ?? 0} key)</strong>.
                       </span>
                     </div>
-                    {settings.geminiKeys.length === 0 && (
+                    {(settings.moduleKeys?.backup?.length ?? 0) === 0 && (
                       <Badge variant="destructive" className="text-[10px]">
                         Belum Ada Key
                       </Badge>
@@ -387,9 +372,9 @@ export default function SettingsPage() {
                 <div className="overflow-y-auto space-y-2 max-h-[268px] pr-2">
                   {currentKeys.length === 0 ? (
                     <div className="text-center py-6 border border-dashed rounded-lg text-xs text-muted-foreground">
-                      {activeScope === "global"
-                        ? "Belum ada Key Utama. Tambahkan minimal 1 key agar semua fitur bisa bekerja."
-                        : `Belum ada key khusus untuk ${SCOPE_CONFIG[activeScope].label}.`}
+                      {activeScope === "backup"
+                        ? "Belum ada Key Backup. Tambahkan key cadangan di sini."
+                        : `Belum ada key di ${SCOPE_CONFIG[activeScope].label}.`}
                     </div>
                   ) : (
                     currentKeys.map((key, i) => {
@@ -513,14 +498,15 @@ export default function SettingsPage() {
                   Google AI Studio memberikan kuota gratis <strong>per project</strong> (~1.500 req/hari).
                 </p>
                 <p>
-                  Dasbor Tren kini <strong>100% bebas API key</strong>. Kamu bisa memisahkan kuota gratis untuk modul berat:
+                  Dasbor Tren kini <strong>100% bebas API key</strong>. Pisahkan kuota gratis antar modul:
                 </p>
                 <ul className="list-disc list-inside space-y-0.5 font-medium">
-                  <li>Project 1 ➡️ Key untuk <strong>Analisis (Foto & Video)</strong></li>
-                  <li>Project 2 ➡️ Key untuk <strong>Generator (Prompt & SEO)</strong></li>
+                  <li>Project 1 ➡️ Key untuk <strong>Generator</strong> (Prompt & SEO)</li>
+                  <li>Project 2 ➡️ Key untuk <strong>Analisis</strong> (Foto & Video)</li>
+                  <li>Project 3 ➡️ Key untuk <strong>Backup</strong> (Cadangan Otomatis)</li>
                 </ul>
                 <p className="pt-1 text-[11px] text-muted-foreground">
-                  Dengan cara ini, aktivitas analisis video tidak akan pernah memakan jatah kuota Generator!
+                  Jika kuota Analisis habis, sistem otomatis beralih ke Backup tanpa pernah menyentuh jatah Generator!
                 </p>
               </CardContent>
             </Card>

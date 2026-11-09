@@ -2,26 +2,33 @@ import type { GeminiModel } from "./gemini";
 
 const STORAGE_KEY = "microstock_settings";
 
-export type ModuleType = "trend" | "analysis" | "generator";
+export type ModuleType = "generator" | "analysis";
+
+export type KeyScope = "generator" | "analysis" | "backup";
 
 export type ModuleKeys = {
-  trend?: string[];
-  analysis?: string[];
   generator?: string[];
+  analysis?: string[];
+  backup?: string[];
+  // Legacy field kept optional for backward compatibility
+  trend?: string[];
 };
 
 export type AppSettings = {
-  geminiKeys: string[]; // Global fallback keys
-  moduleKeys?: ModuleKeys;
+  moduleKeys: {
+    generator: string[];
+    analysis: string[];
+    backup: string[];
+  };
   geminiModel: GeminiModel;
+  geminiKeys?: string[]; // Legacy compatibility
 };
 
 const defaults: AppSettings = {
-  geminiKeys: [],
   moduleKeys: {
-    trend: [],
-    analysis: [],
     generator: [],
+    analysis: [],
+    backup: [],
   },
   geminiModel: "gemini-3.8-flash",
 };
@@ -36,12 +43,17 @@ export function loadSettings(): AppSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw);
+
+    // Auto-migrate legacy global geminiKeys to backup if backup is empty
+    const legacyGlobalKeys = Array.isArray(parsed.geminiKeys) ? parsed.geminiKeys : [];
+    const savedBackup = Array.isArray(parsed.moduleKeys?.backup) ? parsed.moduleKeys.backup : [];
+    const backupKeys = savedBackup.length > 0 ? savedBackup : legacyGlobalKeys;
+
     const result: AppSettings = {
-      geminiKeys: Array.isArray(parsed.geminiKeys) ? parsed.geminiKeys : [],
       moduleKeys: {
-        trend: Array.isArray(parsed.moduleKeys?.trend) ? parsed.moduleKeys.trend : [],
-        analysis: Array.isArray(parsed.moduleKeys?.analysis) ? parsed.moduleKeys.analysis : [],
         generator: Array.isArray(parsed.moduleKeys?.generator) ? parsed.moduleKeys.generator : [],
+        analysis: Array.isArray(parsed.moduleKeys?.analysis) ? parsed.moduleKeys.analysis : [],
+        backup: backupKeys,
       },
       geminiModel: validModelValues.includes(parsed.geminiModel) ? parsed.geminiModel : defaults.geminiModel,
     };
@@ -57,16 +69,19 @@ export function saveSettings(settings: AppSettings): void {
 }
 
 /**
- * Returns dedicated API keys for the specific module if configured,
- * followed by global fallback keys.
- * Prioritizes module-specific keys while ensuring users aren't left stranded
- * when a single dedicated key hits rate limit or quota issues.
+ * Strict isolation with backup fallback:
+ * - When running "analysis": uses analysis keys first. If exhausted, falls back ONLY to backup keys.
+ *   DILARANG KERAS menyentuh key generator! Kuota generator terlindungi 100%.
+ * - When running "generator": uses generator keys first. If exhausted, falls back ONLY to backup keys.
+ *   DILARANG KERAS menyentuh key analysis! Kuota analysis terlindungi 100%.
  */
 export function getModuleKeys(module: ModuleType): string[] {
   const settings = loadSettings();
-  const specific = settings.moduleKeys?.[module] ?? [];
-  const globalKeys = settings.geminiKeys ?? [];
-  const combined = Array.from(new Set([...specific, ...globalKeys])).filter(
+  const primary = settings.moduleKeys?.[module] ?? [];
+  const backup = settings.moduleKeys?.backup ?? [];
+
+  // Dedup while preserving priority order: primary module keys first, then backup keys
+  const combined = Array.from(new Set([...primary, ...backup])).filter(
     (k) => typeof k === "string" && k.trim().length > 0
   );
   return combined;
