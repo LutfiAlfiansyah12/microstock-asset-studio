@@ -16,7 +16,6 @@ import {
   Wand2,
   Tags,
   AlertTriangle,
-  Settings,
   Sparkles,
 } from "lucide-react";
 import {
@@ -27,7 +26,6 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { loadSettings, getModuleKeys } from "@/lib/settings";
 import type { TrendData } from "@/app/api/trend/route";
 
 const chartConfig = {
@@ -41,31 +39,6 @@ function StatSkeleton() {
       <CardContent>
         <Skeleton className="h-8 w-16 mb-2" />
         <Skeleton className="h-3 w-32" />
-      </CardContent>
-    </Card>
-  );
-}
-
-function EmptyState({ onPreview }: { onPreview?: () => void }) {
-  return (
-    <Card className="col-span-full">
-      <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
-        <Settings className="h-10 w-10 text-muted-foreground opacity-40" />
-        <p className="font-medium">Belum ada API key</p>
-        <p className="text-sm text-muted-foreground max-w-md">
-          Tambahkan Gemini API key di Settings untuk melihat data tren real-time via AI, atau muat data kurasi offline untuk eksplorasi.
-        </p>
-        <div className="flex items-center gap-2 mt-2">
-          <Link href="/settings" className={cn(buttonVariants({ size: "sm" }))}>
-            Ke Settings
-          </Link>
-          {onPreview && (
-            <Button variant="outline" size="sm" onClick={onPreview}>
-              <Sparkles className="h-4 w-4 mr-1.5" />
-              Lihat Data Demo (Offline)
-            </Button>
-          )}
-        </div>
       </CardContent>
     </Card>
   );
@@ -94,63 +67,38 @@ export default function DashboardPage() {
   const [data, setData] = useState<TrendData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [noKeys, setNoKeys] = useState(false);
 
   const getCacheKey = useCallback(() => {
     return `microstock_trend_${platform}_${assetType}_${region}`;
   }, [platform, assetType, region]);
 
-  const fetchTrends = useCallback(
-    async (allowDemo = false) => {
-      const keys = getModuleKeys("trend");
-      const settings = loadSettings();
+  const fetchTrends = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/trend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform,
+          assetType,
+          region,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal memuat data");
+      setData(json);
 
-      if (keys.length === 0 && !allowDemo) {
-        // Try to load cached data first
-        try {
-          const cached = localStorage.getItem(getCacheKey());
-          if (cached) {
-            setData(JSON.parse(cached));
-            setNoKeys(false);
-            return;
-          }
-        } catch {}
-
-        setNoKeys(true);
-        return;
-      }
-
-      setNoKeys(false);
-      setIsLoading(true);
-      setError(null);
       try {
-        const res = await fetch("/api/trend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            keys,
-            model: settings.geminiModel,
-            platform,
-            assetType,
-            region,
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Gagal memuat data");
-        setData(json);
-
-        try {
-          localStorage.setItem(getCacheKey(), JSON.stringify(json));
-        } catch {}
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
-        setError(errMsg);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [platform, assetType, region, getCacheKey]
-  );
+        localStorage.setItem(getCacheKey(), JSON.stringify(json));
+      } catch {}
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      setError(errMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [platform, assetType, region, getCacheKey]);
 
   useEffect(() => {
     // Attempt cache hydration immediately on filter change
@@ -168,15 +116,19 @@ export default function DashboardPage() {
     <div className="flex flex-col flex-1">
       <PageHeader
         title="Trend Dashboard"
-        description="Analisis tren real-time aset microstock via Gemini AI + Google Search"
+        description="Riset pasar & kalender tren musiman aset microstock (Bebas API Key)"
         actions={
           <div className="flex items-center gap-2">
+            <Badge variant="outline" className="hidden sm:inline-flex text-xs font-normal border-green-300 text-green-700 bg-green-50 dark:bg-green-950/30 dark:border-green-900 dark:text-green-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse" />
+              Bebas API Key
+            </Badge>
             {data && (
               <span className="text-xs text-muted-foreground">
                 Diperbarui: {data.updatedAt}
               </span>
             )}
-            <Button variant="outline" size="sm" onClick={() => fetchTrends(false)} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={fetchTrends} disabled={isLoading}>
               <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
               {isLoading ? "Memuat..." : "Refresh"}
             </Button>
@@ -222,28 +174,10 @@ export default function DashboardPage() {
           </Select>
         </div>
 
-        {/* No keys state */}
-        {noKeys && !data && (
-          <div className="grid">
-            <EmptyState onPreview={() => fetchTrends(true)} />
-          </div>
-        )}
-
-        {/* Warning banner (when using fallback data or when live API had notes) */}
-        {data?.warning && !isLoading && (
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-            <span className="flex-1">{data.warning}</span>
-            <Link href="/settings" className="font-semibold underline hover:no-underline shrink-0">
-              Cek Settings
-            </Link>
-          </div>
-        )}
-
         {/* Error state (only when no data is available at all) */}
         {error && !data && !isLoading && (
           <div className="grid">
-            <ErrorState message={error} onRetry={() => fetchTrends(false)} />
+            <ErrorState message={error} onRetry={fetchTrends} />
           </div>
         )}
 

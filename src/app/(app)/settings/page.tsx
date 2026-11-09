@@ -54,7 +54,7 @@ const SCOPE_CONFIG: Record<
   trend: {
     label: "Dasbor Tren",
     shortLabel: "Tren",
-    desc: "Khusus untuk riset tren pasar microstock dan Google Search Grounding.",
+    desc: "Dasbor Tren sudah otomatis aktif 100% bebas API key (berbasis Mesin Kalender Musiman Microstock).",
     icon: TrendingUp,
   },
   analysis: {
@@ -513,15 +513,14 @@ export default function SettingsPage() {
                   Google AI Studio memberikan kuota gratis <strong>per project</strong> (~1.500 req/hari).
                 </p>
                 <p>
-                  Buat 3 project terpisah di AI Studio untuk memisahkan kuota:
+                  Dasbor Tren kini <strong>100% bebas API key</strong>. Kamu bisa memisahkan kuota gratis untuk modul berat:
                 </p>
                 <ul className="list-disc list-inside space-y-0.5 font-medium">
-                  <li>Project 1 ➡️ Key untuk <strong>Dasbor Tren</strong></li>
-                  <li>Project 2 ➡️ Key untuk <strong>Analisis</strong></li>
-                  <li>Project 3 ➡️ Key untuk <strong>Generator</strong></li>
+                  <li>Project 1 ➡️ Key untuk <strong>Analisis (Foto & Video)</strong></li>
+                  <li>Project 2 ➡️ Key untuk <strong>Generator (Prompt & SEO)</strong></li>
                 </ul>
                 <p className="pt-1 text-[11px] text-muted-foreground">
-                  Dengan cara ini, aktivitas video di Generator tidak akan pernah memblokir Dasbor Tren atau Analisis!
+                  Dengan cara ini, aktivitas analisis video tidak akan pernah memakan jatah kuota Generator!
                 </p>
               </CardContent>
             </Card>
