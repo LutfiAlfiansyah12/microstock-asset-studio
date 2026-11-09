@@ -695,7 +695,7 @@ function SEOGeneratorContent() {
                     {bulkDoneCount > 0 && (
                       <Button variant="outline" onClick={handleBulkExport}>
                         <Download className="h-4 w-4 mr-2" />
-                        Export Semua (.csv) ({bulkDoneCount})
+                        Export CSV ({bulkDoneCount})
                       </Button>
                     )}
                     <Button
