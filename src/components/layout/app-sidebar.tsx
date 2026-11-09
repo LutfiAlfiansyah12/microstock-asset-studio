@@ -10,7 +10,6 @@ import {
   Video,
   Wand2,
   Tags,
-  Library,
   Layers,
   Settings,
   History,
@@ -63,21 +62,13 @@ const navItems: NavGroup[] = [
     items: [
       { href: "/prompt", label: "Generator Prompt", icon: Wand2 },
       { href: "/seo", label: "Generator SEO", icon: Tags },
-      {
-        href: "/history",
-        label: "Riwayat",
-        icon: History,
-        subItems: [
-          { href: "/history/prompt", label: "Riwayat Generator Prompt" },
-          { href: "/history/seo", label: "Riwayat Generator SEO" },
-        ],
-      },
     ],
   },
   {
-    group: "Koleksi",
+    group: "Riwayat",
     items: [
-      { href: "/library", label: "Koleksi Aset", icon: Library },
+      { href: "/history/prompt", label: "Riwayat Analisis", icon: History },
+      { href: "/history/seo", label: "Riwayat SEO", icon: Tags },
     ],
   },
 ];

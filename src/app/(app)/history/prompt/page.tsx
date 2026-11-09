@@ -34,8 +34,8 @@ export default function HistoryPromptPage() {
   return (
     <div className="flex flex-col flex-1">
       <PageHeader
-        title="Riwayat Generator Prompt"
-        description="Hasil generate prompt yang pernah dibuat"
+        title="Riwayat Analisis"
+        description="Hasil analisis dan prompt yang pernah dibuat"
         actions={
           sessions.length > 0 ? (
             <Button variant="outline" size="sm" onClick={handleClear}>

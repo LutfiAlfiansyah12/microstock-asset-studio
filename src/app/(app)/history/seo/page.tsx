@@ -40,7 +40,7 @@ export default function HistorySeoPage() {
   return (
     <div className="flex flex-col flex-1">
       <PageHeader
-        title="Riwayat Generator SEO"
+        title="Riwayat SEO"
         description="Hasil generate metadata SEO yang pernah dibuat"
         actions={
           sessions.length > 0 ? (
