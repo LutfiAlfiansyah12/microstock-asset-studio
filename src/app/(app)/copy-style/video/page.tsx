@@ -155,8 +155,8 @@ export default function CopyStyleVideoPage() {
         description="Analisis gaya sinematik video referensi dan konversi ke style preset"
       />
 
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Input Panel */}
           <div className="space-y-4">
             <Card>

@@ -149,23 +149,23 @@ export default function CalendarPage() {
 
   function matchesCountry(eventCountry: string, filter: string): boolean {
     if (filter === "all") return true;
-    if (eventCountry === "GLOBAL") return true;
     if (eventCountry === filter) return true;
     const group = regionGroups[filter];
     return group ? group.includes(eventCountry) : false;
   }
 
-  const upcomingEvents = seasonalEvents
-    .filter((e) => {
-      const afterToday = e.startDate >= today || (e.endDate && e.endDate >= today);
-      const matchCountry = matchesCountry(e.country, filterCountry);
-      const matchCategory = filterCategory === "all" || e.category === filterCategory;
-      return afterToday && matchCountry && matchCategory;
-    })
+  const filteredEvents = seasonalEvents.filter((e) => {
+    const matchCountry = matchesCountry(e.country, filterCountry);
+    const matchCategory = filterCategory === "all" || e.category === filterCategory;
+    return matchCountry && matchCategory;
+  });
+
+  const upcomingEvents = filteredEvents
+    .filter((e) => e.startDate >= today || (e.endDate && e.endDate >= today))
     .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
   const byCategory = (cat: string) =>
-    seasonalEvents.filter((e) => e.category === cat).map((e) => e.startDate);
+    filteredEvents.filter((e) => e.category === cat).map((e) => e.startDate);
 
   const modifiers = {
     eventReligi: byCategory("religi"),
@@ -175,7 +175,7 @@ export default function CalendarPage() {
   };
 
   const selectedDayEvents = selectedDate
-    ? seasonalEvents.filter((e) => {
+    ? filteredEvents.filter((e) => {
         const onStart = isSameDay(selectedDate, e.startDate);
         const inRange = e.endDate
           ? isWithinInterval(selectedDate, { start: e.startDate, end: e.endDate })
@@ -188,48 +188,58 @@ export default function CalendarPage() {
     <div className="flex flex-col flex-1">
       <PageHeader
         title="Kalender Musiman"
-        description={`Kalender event global & perencanaan konten aset musiman · ${seasonalEvents.length} event`}
+        description={`Kalender event global & perencanaan konten aset musiman · ${filteredEvents.length} event`}
+        actions={
+          <div className="flex flex-wrap gap-2.5">
+            <Select
+              value={filterCountry}
+              onValueChange={(v) => {
+                if (v) {
+                  setFilterCountry(v);
+                  setDetailPage(0);
+                }
+              }}
+              items={filterCountryItems}
+            >
+              <SelectTrigger className="w-48 bg-[#F5F6FA] border-0">
+                <Globe className="h-4 w-4 mr-2 shrink-0" />
+                <SelectValue placeholder="Negara/Region" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(filterCountryItems).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={filterCategory}
+              onValueChange={(v) => {
+                if (v) {
+                  setFilterCategory(v);
+                  setDetailPage(0);
+                }
+              }}
+              items={{ all: "Semua Kategori", religi: "Religi", nasional: "Nasional", komersial: "Komersial", musim: "Musim" }}
+            >
+              <SelectTrigger className="w-44 bg-[#F5F6FA] border-0">
+                <SelectValue placeholder="Kategori" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Kategori</SelectItem>
+                <SelectItem value="religi">Religi</SelectItem>
+                <SelectItem value="nasional">Nasional</SelectItem>
+                <SelectItem value="komersial">Komersial</SelectItem>
+                <SelectItem value="musim">Musim</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        }
       />
 
-      <div className="flex-1 p-6 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <Select
-            value={filterCountry}
-            onValueChange={(v) => v && setFilterCountry(v)}
-            items={filterCountryItems}
-          >
-            <SelectTrigger className="w-48">
-              <Globe className="h-4 w-4 mr-2 shrink-0" />
-              <SelectValue placeholder="Negara/Region" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(filterCountryItems).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={filterCategory}
-            onValueChange={(v) => v && setFilterCategory(v)}
-            items={{ all: "Semua Kategori", religi: "Religi", nasional: "Nasional", komersial: "Komersial", musim: "Musim" }}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Kategori" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Kategori</SelectItem>
-              <SelectItem value="religi">Religi</SelectItem>
-              <SelectItem value="nasional">Nasional</SelectItem>
-              <SelectItem value="komersial">Komersial</SelectItem>
-              <SelectItem value="musim">Musim</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
+      <div className="flex-1 space-y-5">
         {/* Calendar + Detail */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="text-base">Kalender</CardTitle>
@@ -249,7 +259,7 @@ export default function CalendarPage() {
                 </div>
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-3">
+            <CardContent className="p-4">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -258,10 +268,10 @@ export default function CalendarPage() {
                 classNames={{ root: "w-full" }}
                 modifiers={modifiers}
                 modifiersClassNames={{
-                  eventReligi: "!bg-green-200 !text-green-900 font-bold",
-                  eventNasional: "!bg-red-200 !text-red-900 font-bold",
-                  eventKomersial: "!bg-blue-200 !text-blue-900 font-bold",
-                  eventMusim: "!bg-orange-200 !text-orange-900 font-bold",
+                  eventReligi: "!rounded-full !bg-emerald-200/80 !text-emerald-950 font-bold",
+                  eventNasional: "!rounded-full !bg-rose-200/80 !text-rose-950 font-bold",
+                  eventKomersial: "!rounded-full !bg-sky-200/80 !text-sky-950 font-bold",
+                  eventMusim: "!rounded-full !bg-amber-200/80 !text-amber-950 font-bold",
                 }}
               />
             </CardContent>

@@ -1,69 +1,48 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import {
-  TrendingUp,
-  TrendingDown,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
   RefreshCw,
   Wand2,
   Tags,
   AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Camera,
   Sparkles,
 } from "lucide-react";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  XAxis,
+  Tooltip,
+  Cell,
+  ReferenceLine,
+} from "recharts";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { TrendData } from "@/app/api/trend/route";
-
-const chartConfig = {
-  score: { label: "Trend Score", color: "oklch(0.4341 0.0392 41.9938)" },
-};
-
-function StatSkeleton() {
-  return (
-    <Card>
-      <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
-      <CardContent>
-        <Skeleton className="h-8 w-16 mb-2" />
-        <Skeleton className="h-3 w-32" />
-      </CardContent>
-    </Card>
-  );
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <Card className="col-span-full border-red-200 bg-red-50">
-      <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-        <AlertTriangle className="h-8 w-8 text-red-500" />
-        <p className="font-medium text-red-700">Gagal memuat data tren</p>
-        <p className="text-sm text-red-600">{message}</p>
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Coba Lagi
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function DashboardPage() {
   const [platform, setPlatform] = useState("all");
   const [assetType, setAssetType] = useState("all");
   const [region, setRegion] = useState("global");
+  const [keywordTab, setKeywordTab] = useState<"rising" | "saturated">("rising");
+  const [pageIdx, setPageIdx] = useState(0);
   const [data, setData] = useState<TrendData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +67,7 @@ export default function DashboardPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal memuat data");
       setData(json);
+      setPageIdx(0);
 
       try {
         localStorage.setItem(getCacheKey(), JSON.stringify(json));
@@ -101,7 +81,6 @@ export default function DashboardPage() {
   }, [platform, assetType, region, getCacheKey]);
 
   useEffect(() => {
-    // Attempt cache hydration immediately on filter change
     try {
       const cached = localStorage.getItem(getCacheKey());
       if (cached) {
@@ -112,274 +91,543 @@ export default function DashboardPage() {
     fetchTrends();
   }, [fetchTrends, getCacheKey]);
 
+  const activeList =
+    keywordTab === "rising"
+      ? data?.risingKeywords || []
+      : (data?.saturatedKeywords || []).map((k) => ({
+          keyword: k.keyword,
+          score: k.score,
+          change: k.change,
+          platform: `Kompetisi ${k.competition}%`,
+          reason: k.reason,
+        }));
+
+  const cardsPerPage = 3;
+  const totalPages = Math.max(1, Math.ceil(activeList.length / cardsPerPage));
+  const visibleKeywords = activeList.slice(
+    pageIdx * cardsPerPage,
+    pageIdx * cardsPerPage + cardsPerPage
+  );
+
   return (
-    <div className="flex flex-col flex-1">
-      <PageHeader
-        title="Trend Dashboard"
-        description="Riset pasar & kalender tren musiman aset microstock (Bebas API Key)"
-        actions={
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="hidden sm:inline-flex text-xs font-normal border-green-300 text-green-700 bg-green-50 dark:bg-green-950/30 dark:border-green-900 dark:text-green-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse" />
-              Bebas API Key
-            </Badge>
-            {data && (
-              <span className="text-xs text-muted-foreground">
-                Diperbarui: {data.updatedAt}
-              </span>
-            )}
-            <Button variant="outline" size="sm" onClick={fetchTrends} disabled={isLoading}>
-              <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
-              {isLoading ? "Memuat..." : "Refresh"}
+    <div className="space-y-5">
+      {error && !data && !isLoading && (
+        <div className="rounded-[28px] bg-white p-8 text-center shadow-xs">
+          <div className="flex flex-col items-center gap-2">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+            <p className="font-bold text-red-700">Gagal memuat data tren</p>
+            <p className="text-xs text-red-600 mb-2">{error}</p>
+            <Button size="sm" onClick={fetchTrends}>
+              Coba Lagi
             </Button>
           </div>
-        }
-      />
+        </div>
+      )}
 
-      <div className="flex-1 p-6 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <Select value={platform} onValueChange={(v) => v && setPlatform(v)}
-            items={{ all: "Semua Platform", adobe: "Adobe Stock", shutterstock: "Shutterstock", vecteezy: "Vecteezy" }}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Platform</SelectItem>
-              <SelectItem value="adobe">Adobe Stock</SelectItem>
-              <SelectItem value="shutterstock">Shutterstock</SelectItem>
-              <SelectItem value="vecteezy">Vecteezy</SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Mondly Asymmetric 12-Column, 2-Row Bento Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* LEFT COLUMN (Spans 4 cols and 2 rows): Activity + By platform in ONE tall card */}
+        <div className="lg:col-span-4 lg:row-span-2 bg-white dark:bg-card rounded-[28px] p-7 shadow-xs flex flex-col justify-between gap-6">
+          {/* Top part: Activity */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-5">
+              <h2 className="text-xl font-bold tracking-tight text-[#14151A] dark:text-foreground">
+                Activity
+              </h2>
 
-          <Select value={assetType} onValueChange={(v) => v && setAssetType(v)}
-            items={{ all: "Semua Tipe", photo: "Foto", vector: "Vector", video: "Video" }}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Tipe</SelectItem>
-              <SelectItem value="photo">Foto</SelectItem>
-              <SelectItem value="vector">Vector</SelectItem>
-              <SelectItem value="video">Video</SelectItem>
-            </SelectContent>
-          </Select>
+              {/* Compact Filter Pill like Mondly's "Last 7 days" */}
+              <Select
+                value={platform}
+                onValueChange={(v) => v && setPlatform(v)}
+                items={{
+                  all: "All Platforms",
+                  adobe: "Adobe Stock",
+                  shutterstock: "Shutterstock",
+                  vecteezy: "Vecteezy",
+                }}
+              >
+                <SelectTrigger className="h-9 rounded-full bg-white dark:bg-muted border border-border/80 text-xs px-3.5 shadow-none font-semibold text-[#14151A] dark:text-foreground">
+                  <Calendar className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  <SelectItem value="all">All Platforms</SelectItem>
+                  <SelectItem value="adobe">Adobe Stock</SelectItem>
+                  <SelectItem value="shutterstock">Shutterstock</SelectItem>
+                  <SelectItem value="vecteezy">Vecteezy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <Select value={region} onValueChange={(v) => v && setRegion(v)}
-            items={{ global: "Global", id: "Indonesia", us: "USA", eu: "Europe", as: "Asia" }}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="global">Global</SelectItem>
-              <SelectItem value="id">Indonesia</SelectItem>
-              <SelectItem value="us">USA</SelectItem>
-              <SelectItem value="eu">Europe</SelectItem>
-              <SelectItem value="as">Asia</SelectItem>
-            </SelectContent>
-          </Select>
+            {/* Big Number Stat */}
+            <div className="flex items-baseline gap-3 mb-4">
+              <span className="text-[44px] leading-none font-extrabold tracking-tight text-[#14151A] dark:text-foreground">
+                {data ? `${data.stats.avgTrendScore},4` : "85,4"}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium leading-tight">
+                Trend
+                <br />
+                score
+              </span>
+            </div>
+
+            {/* Mondly Bar Chart with dashed reference line & Lavender/Violet bars */}
+            <div className="h-52 w-full relative">
+              {isLoading && !data ? (
+                <Skeleton className="h-full w-full rounded-2xl" />
+              ) : data ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={data.trendChart}
+                    margin={{ top: 12, right: 4, left: 4, bottom: 0 }}
+                    barCategoryGap="18%"
+                  >
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: "#8E929F", fontWeight: 500 }}
+                      dy={6}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "transparent" }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-[#14151A] text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-md">
+                              {payload[0].value} score
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <ReferenceLine
+                      y={data.stats.avgTrendScore}
+                      stroke="#14151A"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.6}
+                    />
+                    <Bar dataKey="score" radius={[12, 12, 12, 12]}>
+                      {data.trendChart.map((entry, index) => {
+                        const isHighlight =
+                          index === data.trendChart.length - 2 ||
+                          index === data.trendChart.length - 1;
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              index === data.trendChart.length - 2
+                                ? "#6342E8"
+                                : "#DCD6FA"
+                            }
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Bottom part: "By platform" inside soft #F5F6FA rounded-3xl container */}
+          <div className="bg-[#F5F6FA] dark:bg-muted/50 rounded-[24px] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#14151A] dark:text-foreground">
+                By platform
+              </h3>
+              <div className="flex items-center gap-1.5">
+                <Select
+                  value={assetType}
+                  onValueChange={(v) => v && setAssetType(v)}
+                  items={{
+                    all: "All Types",
+                    photo: "Photo",
+                    vector: "Vector",
+                    video: "Video",
+                  }}
+                >
+                  <SelectTrigger className="h-7 rounded-full bg-white dark:bg-card border-0 text-[11px] px-2.5 shadow-2xs font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="photo">Photo</SelectItem>
+                    <SelectItem value="vector">Vector</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-3.5">
+              {[
+                {
+                  sub: "Commercial & AI",
+                  name: "Adobe Stock",
+                  val: "92,5",
+                  unit: "%",
+                  iconBg: "bg-white",
+                  iconColor: "text-[#14151A]",
+                  symbol: "✦",
+                },
+                {
+                  sub: "Global Demand",
+                  name: "Shutterstock",
+                  val: "86,8",
+                  unit: "%",
+                  iconBg: "bg-sky-500/15",
+                  iconColor: "text-sky-600",
+                  symbol: "●",
+                },
+                {
+                  sub: "Vector & Graphics",
+                  name: "Vecteezy",
+                  val: "79,2",
+                  unit: "%",
+                  iconBg: "bg-emerald-500/15",
+                  iconColor: "text-emerald-600",
+                  symbol: "◆",
+                },
+                {
+                  sub: "Templates & PSD",
+                  name: "Freepik",
+                  val: "74,5",
+                  unit: "%",
+                  iconBg: "bg-indigo-500/15",
+                  iconColor: "text-indigo-600",
+                  symbol: "▲",
+                },
+              ].map((plat) => (
+                <div
+                  key={plat.name}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-full ${plat.iconBg} shadow-2xs flex items-center justify-center font-bold text-sm ${plat.iconColor}`}
+                    >
+                      {plat.symbol}
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        {plat.sub}
+                      </p>
+                      <p className="text-xs font-bold text-[#14151A] dark:text-foreground">
+                        {plat.name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-extrabold text-[#14151A] dark:text-foreground">
+                      {plat.val}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-0.5">
+                      {plat.unit}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Error state (only when no data is available at all) */}
-        {error && !data && !isLoading && (
-          <div className="grid">
-            <ErrorState message={error} onRetry={fetchTrends} />
+        {/* TOP CENTER (4 Cols): Progress statistics */}
+        <div className="lg:col-span-4 bg-white dark:bg-card rounded-[28px] p-7 shadow-xs flex flex-col justify-between gap-5">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold tracking-tight text-[#14151A] dark:text-foreground">
+                Progress statistics
+              </h2>
+              <button
+                type="button"
+                onClick={fetchTrends}
+                title="Refresh Data"
+                className="w-8 h-8 rounded-full bg-[#F5F6FA] hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <RefreshCw
+                  className={cn("w-3.5 h-3.5", isLoading && "animate-spin")}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-baseline gap-3 mb-5">
+              <span className="text-[44px] leading-none font-extrabold tracking-tight text-[#14151A] dark:text-foreground">
+                {data ? `${data.stats.avgTrendScore}%` : "64%"}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium leading-tight">
+                Total
+                <br />
+                activity
+              </span>
+            </div>
+
+            {/* Mondly 3-Color Segmented Bar with vertical ticks & percentages */}
+            <div className="space-y-2 mb-6">
+              <div className="w-full h-1.5 flex items-center gap-1.5">
+                <div
+                  className="h-full bg-[#6342E8] rounded-full"
+                  style={{ width: "28%" }}
+                />
+                <div
+                  className="h-full bg-[#22C55E] rounded-full"
+                  style={{ width: "36%" }}
+                />
+                <div
+                  className="h-full bg-[#F59E0B] rounded-full"
+                  style={{ width: "36%" }}
+                />
+              </div>
+              <div className="flex items-center text-[11px] font-semibold text-muted-foreground">
+                <span style={{ width: "28%" }}>28%</span>
+                <span style={{ width: "36%" }}>36%</span>
+                <span style={{ width: "36%" }}>36%</span>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* AI Summary */}
-        {(isLoading || data) && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="py-3 flex items-start gap-3">
-              <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-              {isLoading ? (
-                <div className="space-y-1.5 flex-1">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              ) : (
-                <p className="text-sm">{data?.summary}</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+          {/* 3 Columns inside #F5F6FA box (In progress, Completed, Upcoming) */}
+          <div className="bg-[#F5F6FA] dark:bg-muted/50 rounded-[24px] p-5 grid grid-cols-3 divide-x divide-border/70">
+            <div className="flex flex-col items-center text-center px-2">
+              <div className="w-10 h-10 rounded-full bg-[#6342E8] text-white flex items-center justify-center mb-3 shadow-sm shadow-[#6342E8]/30">
+                <Clock className="w-4 h-4" />
+              </div>
+              <span className="text-2xl font-extrabold text-[#14151A] dark:text-foreground">
+                {data ? data.stats.risingCount : "8"}
+              </span>
+              <span className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                Rising Hot
+              </span>
+            </div>
 
-        {/* Stats */}
-        {(isLoading || data) && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
-            ) : (
-              [
-                { label: "Keyword Rising", value: String(data!.stats.risingCount), change: "saat ini", trend: "up" },
-                { label: "Avg Trend Score", value: String(data!.stats.avgTrendScore), change: "dari 100", trend: "up" },
-                { label: "Kategori Saturated", value: String(data!.stats.saturatedCount), change: "terlalu kompetitif", trend: "down" },
-                { label: "Peluang Baru", value: String(data!.stats.opportunitiesCount), change: "siap dieksplor", trend: "up" },
-              ].map((stat) => (
-                <Card key={stat.label}>
-                  <CardHeader className="pb-2"><CardDescription>{stat.label}</CardDescription></CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stat.value}</div>
-                    <div className="flex items-center gap-1 mt-1">
-                      {stat.trend === "up"
-                        ? <TrendingUp className="h-3 w-3 text-green-500" />
-                        : <TrendingDown className="h-3 w-3 text-red-500" />}
-                      <span className="text-xs text-muted-foreground">{stat.change}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
+            <div className="flex flex-col items-center text-center px-2">
+              <div className="w-10 h-10 rounded-full bg-[#22C55E] text-white flex items-center justify-center mb-3 shadow-sm shadow-[#22C55E]/30">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <span className="text-2xl font-extrabold text-[#14151A] dark:text-foreground">
+                {data ? data.stats.opportunitiesCount : "12"}
+              </span>
+              <span className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                Peluang
+              </span>
+            </div>
+
+            <div className="flex flex-col items-center text-center px-2">
+              <div className="w-10 h-10 rounded-full bg-[#F97316] text-white flex items-center justify-center mb-3 shadow-sm shadow-[#F97316]/30">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <span className="text-2xl font-extrabold text-[#14151A] dark:text-foreground">
+                {data ? data.stats.saturatedCount : "14"}
+              </span>
+              <span className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                Saturated
+              </span>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* Chart + Categories */}
-        {(isLoading || data) && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Tren 6 Bulan Terakhir</CardTitle>
-                <CardDescription>Estimasi indeks tren konten microstock</CardDescription>
-              </CardHeader>
-              <CardContent className="px-2 pb-4">
-                {isLoading ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : (
-                  <ChartContainer config={chartConfig} className="h-64 w-full">
-                    <LineChart data={data!.trendChart} margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
-                      <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={28} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="score" stroke="var(--color-score)" strokeWidth={2.5} dot={{ r: 3 }} />
-                    </LineChart>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
+        {/* TOP RIGHT (4 Cols): Ringkasan Tren Microstock */}
+        <div className="lg:col-span-4 bg-white dark:bg-card rounded-[28px] p-7 shadow-xs flex flex-col justify-between gap-5">
+          <div>
+            {/* 2 Pastel Badges */}
+            <div className="flex items-center gap-2 mb-3.5">
+              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#E6F8EF] text-[#16A34A]">
+                Seasonal Focus
+              </span>
+              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#E8F3FE] text-[#2563EB]">
+                Market Summary
+              </span>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Kategori Teratas</CardTitle>
-                <CardDescription>Berdasarkan trend score saat ini</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {isLoading
-                  ? Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="space-y-1">
-                        <div className="flex justify-between"><Skeleton className="h-4 w-24" /><Skeleton className="h-4 w-12" /></div>
-                        <Skeleton className="h-1.5 w-full" />
-                      </div>
-                    ))
-                  : data!.categories.map((cat) => (
-                      <div key={cat.name} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium">{cat.name}</span>
-                          <div className="flex items-center gap-2">
-                            {cat.growth > 0
-                              ? <span className="text-green-600 text-xs">+{cat.growth}%</span>
-                              : <span className="text-red-500 text-xs">{cat.growth}%</span>}
-                            <span className="text-muted-foreground text-xs">{cat.score}</span>
-                          </div>
-                        </div>
-                        <Progress value={cat.score} className="h-1.5" />
-                      </div>
-                    ))}
-              </CardContent>
-            </Card>
+            <h2 className="text-xl font-bold tracking-tight text-[#14151A] dark:text-foreground mb-3">
+              Ringkasan Tren Microstock
+            </h2>
+
+            <p className="text-[13px] text-muted-foreground leading-relaxed">
+              {data?.summary ||
+                "Analisis pasar microstock saat ini berfokus pada persiapan kampanye musiman, tren kolaborasi AI-manusia, energi terbarukan, serta gaya hidup autentik dengan tingkat permintaan komersial tinggi."}
+            </p>
           </div>
-        )}
 
-        {/* Keywords */}
-        {(isLoading || data) && (
-          <Tabs defaultValue="rising">
-            <TabsList>
-              <TabsTrigger value="rising">
-                <TrendingUp className="h-4 w-4 mr-1" />Rising Keywords
-              </TabsTrigger>
-              <TabsTrigger value="saturated">
-                <TrendingDown className="h-4 w-4 mr-1" />Saturated
-              </TabsTrigger>
-            </TabsList>
+          {/* Solid Black Pill CTA Button */}
+          <Link
+            href="/prompt"
+            className="w-full h-12 rounded-full bg-[#14151A] hover:bg-[#14151A]/90 text-white font-semibold text-xs flex items-center justify-center shadow-sm transition-all"
+          >
+            Continue to Prompt Studio
+          </Link>
+        </div>
 
-            <TabsContent value="rising" className="mt-3">
-              <Card>
-                <CardContent className="p-0">
-                  {isLoading ? (
-                    <div className="divide-y">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="flex items-center justify-between px-4 py-3 gap-4">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-4 w-20" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {data!.risingKeywords.map((kw, i) => (
-                        <div key={kw.keyword} className="flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="text-sm font-medium text-muted-foreground w-5 shrink-0">{i + 1}</span>
-                            <div className="min-w-0">
-                              <span className="font-medium text-sm">{kw.keyword}</span>
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <Badge variant="outline" className="text-xs py-0 h-4">{kw.platform}</Badge>
-                                <span className="text-xs text-muted-foreground truncate">{kw.reason}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-right hidden sm:block">
-                              <div className="text-sm font-semibold">{kw.score}</div>
-                              <div className="text-xs text-green-600">{kw.change}</div>
-                            </div>
-                            <div className="flex gap-1">
-                              <Link href={`/prompt?keyword=${encodeURIComponent(kw.keyword)}`}
-                                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs")}>
-                                <Wand2 className="h-3 w-3 mr-1" />Prompt
-                              </Link>
-                              <Link href={`/seo?keyword=${encodeURIComponent(kw.keyword)}`}
-                                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 text-xs")}>
-                                <Tags className="h-3 w-3 mr-1" />SEO
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+        {/* BOTTOM RIGHT (Spans 8 Cols): "My schedule" -> Trending Keywords Schedule */}
+        <div className="lg:col-span-8 bg-white dark:bg-card rounded-[28px] p-7 shadow-xs flex flex-col justify-between gap-5">
+          {/* Header with < Today > navigation like Mondly */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold tracking-tight text-[#14151A] dark:text-foreground">
+                Trending keywords
+              </h2>
+              <div className="inline-flex items-center gap-1 bg-[#F5F6FA] p-1 rounded-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKeywordTab("rising");
+                    setPageIdx(0);
+                  }}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer",
+                    keywordTab === "rising"
+                      ? "bg-[#14151A] text-white"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="saturated" className="mt-3">
-              <Card>
-                <CardContent className="p-0">
-                  {isLoading ? (
-                    <div className="divide-y">
-                      {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="flex items-center justify-between px-4 py-3 gap-4">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-4 w-16" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {data!.saturatedKeywords.map((kw) => (
-                        <div key={kw.keyword} className="flex items-center justify-between px-4 py-3">
-                          <div>
-                            <span className="font-medium text-sm">{kw.keyword}</span>
-                            <div className="text-xs text-muted-foreground mt-0.5">{kw.reason}</div>
-                            <div className="text-xs text-muted-foreground">Kompetisi: {kw.competition}%</div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-sm font-semibold text-muted-foreground">{kw.score}</div>
-                            <div className="text-xs text-red-500">{kw.change}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                >
+                  Rising
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKeywordTab("saturated");
+                    setPageIdx(0);
+                  }}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer",
+                    keywordTab === "saturated"
+                      ? "bg-[#14151A] text-white"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
+                >
+                  Saturated
+                </button>
+              </div>
+            </div>
+
+            {/* Mondly < Today > style pager */}
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setPageIdx((p) => Math.max(0, p - 1))}
+                disabled={pageIdx === 0}
+                className="w-8 h-8 rounded-full border border-border/80 flex items-center justify-center text-foreground disabled:opacity-40 hover:bg-[#F5F6FA] transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-bold text-[#14151A] dark:text-foreground px-1">
+                Page {pageIdx + 1}/{totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setPageIdx((p) => Math.min(totalPages - 1, p + 1))
+                }
+                disabled={pageIdx >= totalPages - 1}
+                className="w-8 h-8 rounded-full border border-border/80 flex items-center justify-center text-foreground disabled:opacity-40 hover:bg-[#F5F6FA] transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* 3 Schedule-style Cards Side by Side (Center card highlighted in Electric Violet #6342E8) */}
+          {isLoading && !data ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-52 w-full rounded-[24px]" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {visibleKeywords.map((item, idx) => {
+                const isCenterViolet = idx === 1;
+                return (
+                  <div
+                    key={item.keyword}
+                    className={cn(
+                      "rounded-[24px] p-5 flex flex-col justify-between min-h-[210px] transition-all",
+                      isCenterViolet
+                        ? "bg-[#6342E8] text-white shadow-lg shadow-[#6342E8]/25"
+                        : "bg-[#F5F6FA] dark:bg-muted/50 text-[#14151A] dark:text-foreground"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <span
+                          className={cn(
+                            "text-[11px] font-medium",
+                            isCenterViolet
+                              ? "text-white/80"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          Score: {item.score} — {item.change}
+                        </span>
+
+                        {isCenterViolet ? (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#F59E0B] text-white flex items-center gap-1">
+                            ● Hot
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <h3 className="text-base font-bold leading-snug mb-3 line-clamp-2">
+                        {item.keyword}
+                      </h3>
+
+                      <span
+                        className={cn(
+                          "inline-block text-[11px] font-semibold px-3 py-1 rounded-full",
+                          isCenterViolet
+                            ? "bg-[#E0E7FF] text-[#3730A3]"
+                            : "bg-[#E0EEFF] text-[#2563EB]"
+                        )}
+                      >
+                        {item.platform}
+                      </span>
+                    </div>
+
+                    {/* Bottom Mentor-style Row with Avatar + Quick Action */}
+                    <div className="flex items-center justify-between pt-4 mt-4">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                            isCenterViolet
+                              ? "bg-white text-[#6342E8]"
+                              : "bg-[#FACC15] text-[#14151A]"
+                          )}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <Link
+                            href={`/prompt?keyword=${encodeURIComponent(
+                              item.keyword
+                            )}`}
+                            className="text-xs font-bold hover:underline block leading-tight"
+                          >
+                            Buat Prompt
+                          </Link>
+                          <Link
+                            href={`/seo?keyword=${encodeURIComponent(
+                              item.keyword
+                            )}`}
+                            className={cn(
+                              "text-[10px] hover:underline block",
+                              isCenterViolet
+                                ? "text-white/75"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            + Generate SEO
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

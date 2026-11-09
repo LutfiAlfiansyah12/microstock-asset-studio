@@ -52,7 +52,7 @@ export default function HistorySeoPage() {
         }
       />
 
-      <div className="flex-1 p-6">
+      <div className="flex-1">
         {sessions.length === 0 ? (
           <Card className="flex items-center justify-center min-h-64">
             <CardContent className="text-center text-muted-foreground py-12">

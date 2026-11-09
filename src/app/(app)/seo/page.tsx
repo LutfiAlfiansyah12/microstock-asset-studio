@@ -491,63 +491,68 @@ function SEOGeneratorContent() {
         description="Generate judul, deskripsi, dan keyword teroptimasi per platform"
       />
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 space-y-5">
         {/* Global config */}
-        <div className="flex flex-wrap gap-3 mb-6">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Platform</Label>
-            <Select
-              value={platform}
-              onValueChange={(v) => v && setPlatform(v)}
-              items={{ adobe: "Adobe Stock", shutterstock: "Shutterstock", vecteezy: "Vecteezy" }}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="adobe">Adobe Stock</SelectItem>
-                <SelectItem value="shutterstock">Shutterstock</SelectItem>
-                <SelectItem value="vecteezy">Vecteezy</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Tipe Aset</Label>
-            <Select
-              value={assetType}
-              onValueChange={(v) => v && setAssetType(v)}
-              items={{ photo: "Foto", vector: "Vector", video: "Video", image: "Image / Ilustrasi" }}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="photo">Foto</SelectItem>
-                <SelectItem value="vector">Vector</SelectItem>
-                <SelectItem value="video">Video</SelectItem>
-                <SelectItem value="image">Image / Ilustrasi</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Keyword Tambahan (opsional)</Label>
-            <Input
-              placeholder="mis: summer beach, golden hour..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="w-60"
-            />
-          </div>
-          <div className="flex items-end">
-            <div className="text-xs text-muted-foreground bg-muted rounded-md px-3 py-2 space-y-0.5">
-              <p>Max keyword: <span className="font-medium">{rules.maxKeywords}</span></p>
-              <p>Max judul: <span className="font-medium">{rules.maxTitle} karakter</span></p>
+        <Card className="p-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Platform</Label>
+                <Select
+                  value={platform}
+                  onValueChange={(v) => v && setPlatform(v)}
+                  items={{ adobe: "Adobe Stock", shutterstock: "Shutterstock", vecteezy: "Vecteezy" }}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="adobe">Adobe Stock</SelectItem>
+                    <SelectItem value="shutterstock">Shutterstock</SelectItem>
+                    <SelectItem value="vecteezy">Vecteezy</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipe Aset</Label>
+                <Select
+                  value={assetType}
+                  onValueChange={(v) => v && setAssetType(v)}
+                  items={{ photo: "Foto", vector: "Vector", video: "Video", image: "Image / Ilustrasi" }}
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="photo">Foto</SelectItem>
+                    <SelectItem value="vector">Vector</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="image">Image / Ilustrasi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Keyword Tambahan (opsional)</Label>
+                <Input
+                  placeholder="mis: summer beach, golden hour..."
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  className="w-60"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-xs text-muted-foreground bg-muted rounded-2xl px-4 py-2 space-y-0.5">
+                <p>Max keyword: <span className="font-semibold text-foreground">{rules.maxKeywords}</span></p>
+                <p>Max judul: <span className="font-semibold text-foreground">{rules.maxTitle} karakter</span></p>
+              </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         <Tabs defaultValue="single">
-          <TabsList className="mb-6">
+          <TabsList className="mb-4">
             <TabsTrigger value="single">
               <ImageIcon className="h-4 w-4 mr-2" />
               Single Aset
@@ -560,7 +565,7 @@ function SEOGeneratorContent() {
 
           {/* SINGLE TAB */}
           <TabsContent value="single">
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
               <div className="lg:col-span-2 space-y-4">
                 <Card>
                   <CardHeader>

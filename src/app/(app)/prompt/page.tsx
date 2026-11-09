@@ -185,8 +185,8 @@ function PromptGeneratorContent() {
         }
       />
 
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
           {/* Config Panel */}
           <Card className="lg:col-span-2">
             <CardHeader>

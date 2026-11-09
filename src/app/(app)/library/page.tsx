@@ -137,7 +137,7 @@ export default function LibraryPage() {
         }
       />
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 space-y-5">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {([
